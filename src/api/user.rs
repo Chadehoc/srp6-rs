@@ -51,7 +51,6 @@ pub(crate) fn calculate_proof_M_for_client<const KL: usize, const SL: usize>(
     let x = calculate_private_key_x(username, user_password, &handshake.s);
     let S = calculate_session_key_S_for_client::<KL>(
         &handshake.N,
-        &handshake.k,
         &handshake.g,
         &handshake.B,
         &A,

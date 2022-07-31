@@ -31,8 +31,6 @@ pub struct Handshake<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     pub g: Generator,
     /// a big and safe prime number
     pub N: PrimeModulus,
-    /// multiplier parameter
-    pub k: MultiplierParameter,
     /// the users salt
     pub s: Salt,
 }
@@ -94,13 +92,11 @@ impl<'a> HandshakeProofVerifier {
 #[allow(non_snake_case)]
 #[derive(Debug, Serialize)]
 pub struct Srp6<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
-    /// A large safe prime (N = 2q+1, where q is prime. All arithmetic is done modulo N.
+    /// A large safe prime (N = 2q+1, where q is prime. AЦll arithmetic is done modulo N.
     /// `KEY_LENGTH` needs to match the bytes of [`PrimeModulus`] `N`  
     pub N: PrimeModulus,
     /// A generator modulo N
     pub g: Generator,
-    /// multiplier parameter
-    pub k: MultiplierParameter,
 }
 
 impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> Srp6<KEY_LENGTH, SALT_LENGTH> {
@@ -116,8 +112,8 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> Srp6<KEY_LENGTH, SALT_LE
                 given: N.num_bytes(),
             });
         }
-        let k = calculate_k::<KEY_LENGTH>(&N, &g);
-        Ok(Self { N, g, k })
+        // let k = calculate_k(&N, &g);
+        Ok(Self { N, g})
     }
 }
 
@@ -153,12 +149,11 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
         let b = generate_private_key::<KEY_LENGTH>();
         debug!("b = {:?}", &b);
 
-        let B = calculate_pubkey_B(&self.N, &self.k, &self.g, v, &b);
+        let B = calculate_pubkey_B(&self.N, &self.g, v, &b);
 
         let h = Handshake {
             N: self.N.clone(),
             g: self.g.clone(),
-            k: self.k.clone(),
             s: s.clone(),
             B: B.clone(),
         };

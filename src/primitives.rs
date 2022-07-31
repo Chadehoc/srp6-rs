@@ -130,7 +130,6 @@ pub(crate) fn calculate_session_key_S_for_host<const KEY_LENGTH: usize>(
 #[allow(clippy::many_single_char_names)]
 pub(crate) fn calculate_session_key_S_for_client<const KEY_LENGTH: usize>(
     N: &PrimeModulus,
-    k: &MultiplierParameter,
     g: &Generator,
     B: &PublicKey,
     A: &PublicKey,
@@ -145,7 +144,7 @@ pub(crate) fn calculate_session_key_S_for_client<const KEY_LENGTH: usize>(
     let u = &calculate_u::<KEY_LENGTH>(A, B);
     let exp: BigNumber = a + &(u * x);
     let g_mod_x = &g.modpow(x, N);
-    let base = B - &(k * g_mod_x);
+    let base = B - &(&calculate_k(N, g) * g_mod_x);
     let S = base.modpow(&exp, N);
     debug!("S = {:?}", &S);
 
@@ -302,13 +301,12 @@ pub(crate) fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey
 #[allow(non_snake_case)]
 pub(crate) fn calculate_pubkey_B(
     N: &PrimeModulus,
-    k: &MultiplierParameter,
     g: &Generator,
     v: &PasswordVerifier,
     b: &PrivateKey,
 ) -> PublicKey {
     let g_mod_N = g.modpow(b, N);
-    let B = &((k * v) + g_mod_N) % N;
+    let B = &((&calculate_k(&N, &g) * v) + g_mod_N) % N;
     debug!("B = {:?}", &B);
 
     B
@@ -341,7 +339,6 @@ pub(crate) fn calculate_private_key_x(
 
 /// hashes the user and the password (used for client private key `x`)
 #[allow(non_snake_case)]
-#[cfg(not(feature = "legacy"))]
 pub(crate) fn calculate_p_hash(I: UsernameRef, p: &ClearTextPassword) -> Hash {
     HashFunc::new()
         .chain(I.as_bytes())
@@ -351,39 +348,16 @@ pub(crate) fn calculate_p_hash(I: UsernameRef, p: &ClearTextPassword) -> Hash {
         .into()
 }
 
-/// hashes the user and the password (used for client private key `x`)
-/// WoW flavoured (upper cased user and password)
-#[allow(non_snake_case)]
-#[cfg(feature = "legacy")]
-pub(crate) fn calculate_p_hash(I: UsernameRef, p: &ClearTextPassword) -> Hash {
-    HashFunc::new()
-        .chain(I.to_uppercase().as_bytes())
-        .chain(":".as_bytes())
-        .chain(p.to_uppercase().as_bytes())
-        .finalize()
-        .into()
-}
-
 /// `k = H(N | PAD(g))` (k = 3 for legacy SRP-6)
 #[allow(non_snake_case)]
-#[cfg(not(feature = "legacy"))]
-pub(crate) fn calculate_k<const KEY_LENGTH: usize>(
+pub(crate) fn calculate_k(
     N: &PrimeModulus,
     g: &Generator,
 ) -> MultiplierParameter {
     HashFunc::new()
         .chain(N.to_vec().as_slice())
-        .chain(g.to_array_pad_zero::<KEY_LENGTH>())
+        .chain(g.to_array_pad_zero::<32>())
         .into()
-}
-
-/// `k = H(N | PAD(g))` (k = 3 for legacy SRP-6)
-#[cfg(feature = "legacy")]
-pub(crate) fn calculate_k<const KEY_LENGTH: usize>(
-    _: &PrimeModulus,
-    _: &Generator,
-) -> MultiplierParameter {
-    MultiplierParameter::from(3)
 }
 
 /// [`PrivateKey`] `a` or `b` is in fact just a big (positive) random number
@@ -509,7 +483,7 @@ mod tests {
     fn should_panic_client_key_calc_for_mod_zero_public_server_key() {
         let params = Srp6_256::default();
         let res = calculate_session_key_S_for_client::<32>(
-            &params.N, &params.N, &params.N, &params.N, &params.N, &params.N, &params.N,
+            &params.N, &params.N, &params.N, &params.N, &params.N, &params.N,
         );
         assert!(res.is_err());
         assert_eq!(res.err().unwrap(), Srp6Error::InvalidPublicKey(params.N));

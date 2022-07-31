@@ -32,7 +32,7 @@ fn main() {
     println!(" - server public key [B] = {:?}", &handshake.B);
     println!(" - prime modulus     [N] = {:?}", &handshake.N);
     println!(" - generator modulus [g] = {:?}", &handshake.g);
-    println!(" - multiplier        [k] = {:?}", &handshake.k);
+    // println!(" - multiplier        [k] = {:?}", &handshake.k);
     println!();
     println!("### Next Step: sending this handshake to the client");
 
