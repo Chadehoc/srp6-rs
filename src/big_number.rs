@@ -1,5 +1,4 @@
-use num_bigint::{BigInt, RandBigInt, Sign};
-use num_traits::Signed;
+use num_bigint::{BigUint, RandBigInt};
 use rand::thread_rng;
 use serde::{Serialize, Serializer};
 use sha1::{Digest, Sha1};
@@ -22,7 +21,7 @@ impl Serialize for BigNumber {
 
 /// [`BigNumber`] helps to work with big numbers as in openssl used.
 #[derive(PartialEq, Clone)]
-pub struct BigNumber(BigInt);
+pub struct BigNumber(BigUint);
 
 #[derive(Error, Debug)]
 pub enum BigNumberError {
@@ -33,7 +32,7 @@ pub enum BigNumberError {
 /// new empty unsigned big number
 impl Default for BigNumber {
     fn default() -> Self {
-        Self(BigInt::new(Sign::Plus, vec![]))
+        Self(BigUint::new(vec![]))
     }
 }
 
@@ -41,20 +40,20 @@ impl BigNumber {
     /// new random initialized big number
     pub fn new_rand(n_bytes: usize) -> Self {
         let mut rng = thread_rng();
-        let a = rng.gen_bigint((n_bytes * 8) as u64);
-        let a = if a.is_negative() { a.abs() } else { a };
+        let a = rng.gen_biguint((n_bytes * 8) as u64);
+        // let a = if a.is_negative() { a.abs() } else { a };
 
         Self(a)
     }
 
     /// [`raw`] is expected to be big endian
     pub fn from_bytes_be(raw: &[u8]) -> Self {
-        Self(BigInt::from_bytes_be(Sign::Plus, raw))
+        Self(BigUint::from_bytes_be(raw))
     }
 
     /// [`raw`] is expected to be little endian
     pub fn from_bytes_le(raw: &[u8]) -> Self {
-        Self(BigInt::from_bytes_le(Sign::Plus, raw))
+        Self(BigUint::from_bytes_le(raw))
     }
 
     /// from a hex string, hex strings are always big endian:
@@ -85,8 +84,7 @@ impl BigNumber {
 
     /// returns the byte vec in little endian byte order
     pub fn to_vec(&self) -> Vec<u8> {
-        let (_, x) = self.0.to_bytes_le();
-        x
+        self.0.to_bytes_le()
     }
 
     pub fn to_array<const N: usize>(&self) -> [u8; N] {
@@ -130,12 +128,12 @@ impl Debug for BigNumber {
 /// from a [`n`] basic u32
 impl From<u32> for BigNumber {
     fn from(n: u32) -> Self {
-        Self(BigInt::from(n))
+        Self(BigUint::from(n))
     }
 }
 
-impl From<BigInt> for BigNumber {
-    fn from(a: BigInt) -> Self {
+impl From<BigUint> for BigNumber {
+    fn from(a: BigUint) -> Self {
         Self(a)
     }
 }
@@ -351,54 +349,10 @@ fn test_into_string_and_display() {
 
 impl Zero for BigNumber {
     fn zero() -> Self {
-        BigInt::zero().into()
+        BigUint::zero().into()
     }
 
     fn is_zero(&self) -> bool {
         self.0.is_zero()
-    }
-}
-
-#[cfg(feature = "openssl_compatibility_tests")]
-mod openssl_compatibility_tests {
-    use super::*;
-    use num_bigint::BigInt;
-    use openssl::bn::{BigNum, BigNumContext, BigNumRef};
-    use std::ops::Rem;
-
-    #[test]
-    fn should_show_big_int_vs_openssl() -> crate::Result<()> {
-        let v = "3E9D557B7899AC2A8DEC8D0046FB310A42A233BD1DF0244B574AB946A22A4A18";
-        let a = BigInt::parse_bytes(v.as_bytes(), 16).unwrap();
-        let b = BigNum::from_hex_str(v)?;
-
-        assert_eq!(b.to_vec(), a.to_bytes_be().1);
-
-        Ok(())
-    }
-
-    #[test]
-    /// see: https://www.openssl.org/docs/man1.1.0/man3/BN_mod_exp.html
-    /// > BN_mod_exp() computes a to the p-th power modulo m (r=a^p % m).
-    /// > This function uses less time and space than BN_exp().
-    /// > Do not call this function when m is even and any of the parameters have the BN_FLG_CONSTTIME flag set.
-    fn should_mod_exp() -> crate::Result<()> {
-        // OpenSSL
-        let (a, p, m) = (
-            BigNum::from_hex_str("6")?,
-            BigNum::from_hex_str("3")?,
-            BigNum::from_hex_str("7")?,
-        );
-        let mut r = BigNum::new()?;
-        let mut ctx = BigNumContext::new()?;
-        r.mod_exp(&a, &p, &m, &mut ctx)?;
-
-        assert_eq!(r, BigNum::from(6)?);
-
-        // BigInt
-        let (a, p, m) = (BigInt::from(6), BigInt::from(3), BigInt::from(7));
-        assert_eq!(a.modpow(&p, &m), BigInt::from(6));
-
-        Ok(())
     }
 }
