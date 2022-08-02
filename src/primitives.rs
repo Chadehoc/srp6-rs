@@ -91,6 +91,12 @@ pub struct UserDetails {
     pub verifier: PasswordVerifier,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct UserHandshake<'a> {
+    pub username: UsernameRef<'a>,
+    pub user_publickey: PublicKey
+}
+
 /// host version of a session key for a given user
 /// S: is the session key of a user
 /// u: is the hash of user and server pub keys

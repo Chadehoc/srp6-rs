@@ -253,8 +253,8 @@ mod api;
 mod big_number;
 mod hash;
 
-pub use api::host::*;
-pub use api::user::*;
+// pub use api::host::*;
+// pub use api::user::*;
 pub use defaults::*;
 pub use primitives::{
     ClearTextPassword, Generator, MultiplierParameter, PasswordVerifier, PrimeModulus, PrivateKey,

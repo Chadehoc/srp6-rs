@@ -1,2 +1,2 @@
-pub(crate) mod host;
-pub(crate) mod user;
+pub(crate) mod new_host;
+pub(crate) mod new_user;
