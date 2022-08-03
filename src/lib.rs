@@ -253,7 +253,7 @@ mod api;
 mod big_number;
 mod hash;
 
-// pub use api::host::*;
+pub use api::new_host::*;
 // pub use api::user::*;
 pub use defaults::*;
 pub use primitives::{

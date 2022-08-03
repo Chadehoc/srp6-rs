@@ -32,6 +32,25 @@ pub struct Srp6<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     pub g: Generator,
 }
 
+impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> Srp6<KEY_LENGTH, SALT_LENGTH> {
+    pub const KEY_LEN: usize = KEY_LENGTH;
+    pub const SALT_LEN: usize = SALT_LENGTH;
+
+    /// this constructor takes care of calculate the right `k`
+    #[allow(non_snake_case)]
+    pub fn new(g: Generator, N: PrimeModulus) -> Result<Self> {
+        if N.num_bytes() != KEY_LENGTH {
+            return Err(Srp6Error::KeyLengthMismatch {
+                expected: KEY_LENGTH,
+                given: N.num_bytes(),
+            });
+        }
+        // let k = calculate_k(&N, &g);
+        Ok(Self { N, g})
+    }
+}
+
+
 impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT_LENGTH>
     for Srp6<KEY_LENGTH, SALT_LENGTH>
 {
@@ -69,3 +88,4 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
         return (user_details.salt.clone(), B);
     }
 }
+
