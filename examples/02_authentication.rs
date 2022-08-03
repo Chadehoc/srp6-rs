@@ -83,19 +83,3 @@
 
 //     println!("Time elapsed in expensive_function() is: {:?}", duration);
 // }
-
-// mod mocked {
-//     use super::*;
-
-//     /// normally salt and verifier is retrieved rom a user database
-//     pub fn lookup_user_details(username: UsernameRef) -> UserDetails {
-//         let (salt, verifier) =
-//             Srp6_4096::default().generate_new_user_secrets(username, USER_PASSWORD);
-
-//         UserDetails {
-//             username: username.to_owned(),
-//             salt,
-//             verifier,
-//         }
-//     }
-// }
