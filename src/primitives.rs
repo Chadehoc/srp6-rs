@@ -97,6 +97,12 @@ pub struct UserHandshake<'a> {
     pub user_publickey: PublicKey
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct OpenConstants {
+    pub module: PrimeModulus,
+    pub generator: Generator
+}
+
 /// host version of a session key for a given user
 /// S: is the session key of a user
 /// u: is the hash of user and server pub keys

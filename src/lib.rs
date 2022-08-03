@@ -243,8 +243,8 @@ The modulus prime and genrator numbers are taken from [RFC5054].
 use thiserror::Error;
 
 // public exports
-pub mod defaults;
-pub mod protocol_details;
+// pub mod defaults;
+// pub mod protocol_details;
 
 // internally available
 pub(crate) mod primitives;
@@ -253,9 +253,9 @@ mod api;
 mod big_number;
 mod hash;
 
-pub use api::new_host::*;
+pub use api::{new_host::*, get_constants};
 // pub use api::user::*;
-pub use defaults::*;
+// pub use defaults::*;
 pub use primitives::{
     ClearTextPassword, Generator, MultiplierParameter, PasswordVerifier, PrimeModulus, PrivateKey,
     Proof, PublicKey, Salt, SessionKey, StrongProof, StrongSessionKey, UserCredentials,
