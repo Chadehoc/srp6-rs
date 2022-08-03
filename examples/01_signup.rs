@@ -10,18 +10,16 @@ fn main() {
     // Reminder: choose always a Srp6_BITS type that is strong like 2048 or 4096
     // let srp = Srp6_4096;
     let user_details = Srp6_4096::generate_new_user_secrets(new_username, user_password, &get_constants());
-    // assert_eq!(user_details.salt.num_bytes(), 4096 / 8);
-    // assert_eq!(user_details.verifier.num_bytes(), 4096 / 8);
+    assert_eq!(user_details.salt.num_bytes(), 4096 / 8);
+    assert_eq!(user_details.verifier.num_bytes(), 4096 / 8);
 
-    // println!("constants: {:?}", &get_constants());
-
-    // println!("Simulating a server and signup with user {}", new_username);
-    // println!(" - User's username   [I] = {:?}", &user_details.username);
-    // println!(" - Salt              [s] = {:?}", &user_details.salt);
-    // println!(" - Password verifier [v] = {:?}", &user_details.verifier);
-    // println!("This is a one time action, normally this data is stored in a user database");
-    // println!();
-    // println!("Next authentication process `cargo run --example 02_authentication`");
+    println!("Simulating a server and signup with user {}", new_username);
+    println!(" - User's username   [I] = {:?}", &user_details.username);
+    println!(" - Salt              [s] = {:?}", &user_details.salt);
+    println!(" - Password verifier [v] = {:?}", &user_details.verifier);
+    println!("This is a one time action, normally this data is stored in a user database");
+    println!();
+    println!("Next authentication process `cargo run --example 02_authentication`");
     let duration = start.elapsed();
 
     println!("Time elapsed in sign_up() is: {:?}", duration);

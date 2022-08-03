@@ -6,8 +6,8 @@ pub(crate) mod new_user;
 
 pub fn get_constants() -> OpenConstants {
     OpenConstants {
-        module: PrimeModulus::from(5),
-        generator: Generator::from_bytes_be(&hex!(
+        generator: Generator::from(5),
+        module: PrimeModulus::from_bytes_be(&hex!(
         "FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1 29024E08
             8A67CC74 020BBEA6 3B139B22 514A0879 8E3404DD EF9519B3 CD3A431B
             302B0A6D F25F1437 4FE1356D 6D51C245 E485B576 625E7EC6 F44C42E9
