@@ -92,9 +92,15 @@ pub struct UserDetails {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct UserHandshake<'a> {
-    pub username: UsernameRef<'a>,
+pub struct UserHandshake {
+    pub username: Username,
     pub user_publickey: PublicKey
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ServerHandshake{
+    pub salt: Salt,
+    pub server_publickey: PublicKey
 }
 
 #[derive(Debug, Clone, Serialize)]

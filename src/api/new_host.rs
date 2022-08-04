@@ -20,7 +20,9 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
     fn continue_handshake(
         user_details: &UserDetails, user_handshake: &UserHandshake, 
         constants: &OpenConstants)
-        -> (Salt, PublicKey) ;
+        -> ServerHandshake;
+
+    // fn verify_proof()
 }
 
 /// Main interaction point for the server
@@ -61,16 +63,22 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
         user_details: &UserDetails,
         user_handshake: &UserHandshake,
         constants: &OpenConstants
-    ) -> (Salt, PublicKey) {
+    ) -> ServerHandshake {
 
-        assert!(&user_details.username == user_handshake.username, "wrong usernames");
+        assert!(user_details.username == user_handshake.username, "wrong usernames");
         let b = generate_private_key::<KEY_LENGTH>();
         debug!("b = {:?}", &b);
 
         let B = calculate_pubkey_B(&constants.module, &constants.generator, &user_details.verifier, &b);
 
-        return (user_details.salt.clone(), B);
+        // return (user_details.salt.clone(), B);
+        return ServerHandshake{
+            salt: user_details.salt.clone(),
+            server_publickey: B
+        };
     }
+
+
 }
 
 pub type Srp6_4096 = Srp6<512, 512>;
