@@ -23,6 +23,11 @@ pub trait UserTrait<const KL: usize, const SL: usize> {
         I: UsernameRef,
         p: &ClearTextPassword,
     ) -> Result<Proof>;
+
+    fn verify_proof(
+        &mut self,
+        servers_proof: &Proof,
+    ) -> bool;
 }
 
 #[allow(non_snake_case)]
@@ -36,6 +41,7 @@ pub struct Srp6User<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     pub M: Proof,
     S: PrivateKey,
     K: SessionKey,
+    verified: bool,
 }
 
 impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> Srp6User<KEY_LENGTH, SALT_LENGTH> {
@@ -52,6 +58,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> Srp6User<KEY_LENGTH, SAL
             M: Proof::default(),
             S: PrivateKey::default(),
             K: SessionKey::default(),
+            verified: false
         }
     }
 }
@@ -113,7 +120,22 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> UserTrait<KEY_LENGTH, SA
         );
         Ok(self.M.clone())
     }
+
+    fn verify_proof(
+        &mut self,
+        servers_proof: &Proof,
+    ) -> bool {
+
+        let my_strong_proof = calculate_strong_proof_M2::<KEY_LENGTH>(&self.A, &self.M, &self.K);
+
+        if servers_proof != &my_strong_proof {
+            false
+        } else {
+            self.verified = true;
+            true
+        }
+    }
 }
 
 
-pub type Srp6User_4096 = Srp6User<512, 512>;
+pub type Srp6user4096 = Srp6User<512, 512>;

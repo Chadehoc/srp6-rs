@@ -20,7 +20,7 @@ impl Serialize for BigNumber {
 }
 
 /// [`BigNumber`] helps to work with big numbers as in openssl used.
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, PartialOrd)]
 pub struct BigNumber(BigUint);
 
 #[derive(Error, Debug)]

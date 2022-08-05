@@ -2,6 +2,7 @@
 use crate::primitives::*;
 use crate::{Result};
 use serde::Serialize;
+use crate::Srp6Error;
 // use crate::big_number::BigNumber;
 
 use log::debug;
@@ -24,7 +25,10 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
         constants: &OpenConstants)
         -> Result<ServerHandshake>;
 
-    // fn verify_proof()
+    fn verify_proof(
+        &mut self,
+        users_proof: &Proof
+    ) -> Result<Proof>;
 }
 
 /// Main interaction point for the server
@@ -39,6 +43,8 @@ pub struct Srp6<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     pub salt: Salt,
     S: PrivateKey,
     K: SessionKey,
+    M: Proof,
+    verified: bool
 
 }
 
@@ -56,6 +62,8 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> Srp6<KEY_LENGTH, SALT_LE
             salt: Salt::default(),
             S: PrivateKey::default(),
             K: SessionKey::default(),
+            M: Proof::default(),
+            verified: false
         }
     }
 }
@@ -106,11 +114,30 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
         
         self.S = calculate_session_key_S_for_host::<KEY_LENGTH>(&constants.module, &self.A, &self.B, &self.b, &self.verifier)?;
         self.K = calculate_session_key_hash_interleave_K::<KEY_LENGTH>(&self.S);
+        self.M = calculate_proof_M::<KEY_LENGTH, SALT_LENGTH>(&constants.module, 
+            &constants.generator, &user_details.username, &user_details.salt, &self.A, &self.B, &self.K);
 
         return Ok(ServerHandshake{
             salt: user_details.salt.clone(),
             server_publickey: B
         });
+    }
+
+    fn verify_proof(
+        &mut self,
+        users_proof: &Proof
+    ) -> Result<Proof> {
+
+
+        if self.M != *users_proof {
+            // println!("{} != {}", self.M, users_proof);
+            // println!("{:?}", self);
+            return Err(Srp6Error::InvalidProof(users_proof.clone()));
+        }
+        let hamk = calculate_strong_proof_M2::<KEY_LENGTH>(&self.A, &self.M, &self.K);
+        self.verified = true;
+        return Ok(hamk);
+
     }
 
 

@@ -42,9 +42,6 @@ pub type PublicKey = BigNumber;
 #[doc(alias("a", "b"))]
 pub type PrivateKey = BigNumber;
 
-/// A pair of [`PublicKey`] and [`PrivateKey`]
-pub type KeyPair = (PublicKey, PrivateKey);
-
 /// Password Verifier is the users secret on the server side
 #[doc(alias = "v")]
 pub type PasswordVerifier = BigNumber;
@@ -162,7 +159,13 @@ pub(crate) fn calculate_session_key_S_for_client<const KEY_LENGTH: usize>(
     let u = &calculate_u::<KEY_LENGTH>(A, B);
     let exp: BigNumber = a + &(u * x);
     let g_mod_x = &g.modpow(x, N);
-    let base = B - &(&calculate_k(N, g) * g_mod_x);
+    let to_sub = (&calculate_k(N, g) * g_mod_x) % N.clone();
+    // let base = B - ;
+    let base = if B < &to_sub {
+        &(N - &to_sub) + B
+    } else {
+        B - &to_sub
+    };
     let S = base.modpow(&exp, N);
     debug!("S = {:?}", &S);
 
