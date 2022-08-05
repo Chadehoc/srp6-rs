@@ -9,50 +9,29 @@ fn main() {
     // let user = mocked::lookup_user_details("Bob");
     let username = String::from_str("Bob").unwrap();
     let constants = get_constants();
-    let user_details = Srp6_4096::generate_new_user_secrets(&username, USER_PASSWORD, &constants);
+    let mut srp6 = Srp6_4096::new();
+    let mut srp6_user = Srp6User_4096::new();
+    let user_details = srp6.generate_new_user_secrets(&username, USER_PASSWORD, &constants);
     let start = Instant::now();
 
 
 
     // user creates a handshake
-    let user_handshake = Srp6User_4096::start_handshake(&username, &constants);
+    let user_handshake = srp6_user.start_handshake(&username, &constants);
 
-    
-    let server_handshake = Srp6_4096::continue_handshake(
+    let server_handshake = srp6.continue_handshake(
         &user_details,
         &user_handshake,
         &constants
-    );
-    // let (handshake, proof_verifier) = Srp6_4096::default().start_handshake(&user);
-    // assert_eq!(handshake.B.num_bytes(), Srp6_4096::KEY_LEN);
-    // println!(
-    //     "## Simulating a Server and {} is our client.",
-    //     user.username
-    // );
-    // println!("host secrets are:");
-    // println!(
-    //     " - public key          [B] = {:?}",
-    //     &proof_verifier.server_keys.0
-    // );
-    // println!(
-    //     " - private key         [b] = {:?}",
-    //     &proof_verifier.server_keys.1
-    // );
-    // println!();
-    // println!("{}'s secrets are:", user.username);
-    // println!(" - verifier          [v] = {:?}", &user.verifier);
-    // println!(" - salt              [s] = {:?}", &user.salt);
-    // println!();
-    // println!("{}'s handshake looks like:", user.username);
-    // println!(" - salt              [s] = {:?}", &handshake.s);
-    // println!(" - server public key [B] = {:?}", &handshake.B);
-    // println!(" - prime modulus     [N] = {:?}", &handshake.N);
-    // println!(" - generator modulus [g] = {:?}", &handshake.g);
-    // // println!(" - multiplier        [k] = {:?}", &handshake.k);
-    // println!();
-    // println!("### Next Step: sending this handshake to the client");
+    ).unwrap();
 
-    // // the client provides proof to the server
+    let proof = srp6_user.update_handshake(
+        &server_handshake,
+        &constants,
+        &username, 
+        USER_PASSWORD,
+    );
+
     // let (proof, strong_proof_verifier) = handshake
     //     .calculate_proof(user.username.as_str(), USER_PASSWORD)
     //     .unwrap();
