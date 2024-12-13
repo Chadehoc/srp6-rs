@@ -5,7 +5,7 @@ fn main() {
     let new_username: UsernameRef = "Bob";
     let user_password: &ClearTextPassword = "secret-password";
 
-    let mut srp6 = Srp6_4096::default();
+    let mut srp6 = Srp6user4096::default();
     let user_details =
         srp6.generate_new_user_secrets(new_username, user_password, &get_constants());
     assert_eq!(user_details.salt.num_bytes(), 4096 / 8);

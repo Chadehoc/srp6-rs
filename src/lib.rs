@@ -257,16 +257,16 @@ pub use api::{get_constants, new_host::*, new_user::*};
 // pub use api::user::*;
 // pub use defaults::*;
 pub use primitives::{
-    ClearTextPassword, Generator, MultiplierParameter, PasswordVerifier, PrimeModulus, PrivateKey,
-    Proof, PublicKey, Salt, SessionKey, StrongProof, StrongSessionKey, UserCredentials,
-    UserDetails, Username, UsernameRef,
+    ClearTextPassword, Generator, MultiplierParameter, OpenConstants, PasswordVerifier,
+    PrimeModulus, PrivateKey, Proof, PublicKey, Salt, SessionKey, StrongProof, StrongSessionKey,
+    UserCredentials, UserDetails, UserHandshake, Username, UsernameRef,
 };
 pub use std::convert::TryInto;
 
 /// encapsulates a [`Srp6Error`]
 pub type Result<T> = std::result::Result<T, Srp6Error>;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, serde::Serialize)]
 pub enum Srp6Error {
     #[error(
         "The provided key length ({given:?} byte) does not match the expected ({expected:?} byte)"
@@ -281,4 +281,39 @@ pub enum Srp6Error {
 
     #[error("The provided public key is invalid")]
     InvalidPublicKey(PublicKey),
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    const USER_PASSWORD: &ClearTextPassword = "secret-password";
+
+    #[test]
+    fn test_handshake() {
+        let username = String::from("Bob");
+        let constants = get_constants();
+        let mut srp6_user = Srp6user4096::default();
+        // new user : those are sent to the server and stored there
+        let user_details =
+            srp6_user.generate_new_user_secrets(&username, USER_PASSWORD, &constants);
+        // user creates a handshake
+        let user_handshake = srp6_user.start_handshake(&username, &constants);
+        // server retrieves stored details and continues the handshake
+        let mut srp6 = Srp6_4096::default();
+        let server_handshake = srp6
+            .continue_handshake(&user_details, &user_handshake.user_publickey, &constants)
+            .unwrap();
+        // client side
+        let proof = srp6_user
+            .update_handshake(&server_handshake, &constants, &username, USER_PASSWORD)
+            .unwrap();
+        // server side
+        let (hamk, secret) = srp6.verify_proof(&proof).unwrap_or_default();
+        // client side
+        assert!(srp6_user.verify_proof(&hamk));
+        // both secrets
+        assert!(*srp6_user.get_secret() == secret);
+    }
 }

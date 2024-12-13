@@ -5,6 +5,15 @@ use crate::Result;
 use log::debug;
 
 pub trait UserTrait<const KL: usize, const SL: usize> {
+    /// for new users, or if they recover their password
+    #[allow(non_snake_case)]
+    fn generate_new_user_secrets(
+        &mut self,
+        I: UsernameRef,
+        p: &ClearTextPassword,
+        constants: &OpenConstants,
+    ) -> UserDetails;
+
     #[allow(non_snake_case)]
     fn start_handshake(
         &mut self,
@@ -38,9 +47,37 @@ pub struct Srp6User<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     verified: bool,
 }
 
+#[cfg(test)]
+impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> Srp6User<KEY_LENGTH, SALT_LENGTH> {
+    pub(crate) fn get_secret(&self) -> &PrivateKey {
+        &self.S
+    }
+}
+
 impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> UserTrait<KEY_LENGTH, SALT_LENGTH>
     for Srp6User<KEY_LENGTH, SALT_LENGTH>
 {
+    /// creates a new [`Salt`] `s` and [`PasswordVerifier`] `v` for a new user
+    #[allow(non_snake_case)]
+    fn generate_new_user_secrets(
+        &mut self,
+        I: UsernameRef,
+        p: &ClearTextPassword,
+        constants: &OpenConstants,
+    ) -> UserDetails {
+        self.salt = generate_salt::<SALT_LENGTH>();
+        // let s = BigNumber::from_hex_str_be("FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED5290").unwrap();
+        let x = calculate_private_key_x(I, p, &self.salt);
+        let verifier = calculate_password_verifier_v(&constants.module, &constants.generator, &x);
+        // self.salt = s.clone();
+
+        UserDetails {
+            username: I.to_owned(),
+            salt: self.salt.clone(),
+            verifier,
+        }
+    }
+
     #[allow(non_snake_case)]
     fn start_handshake(
         &mut self,
@@ -107,3 +144,4 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> UserTrait<KEY_LENGTH, SA
 }
 
 pub type Srp6user4096 = Srp6User<512, 512>;
+pub type Srp6user2048 = Srp6User<256, 256>;
