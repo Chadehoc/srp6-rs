@@ -91,19 +91,19 @@ pub struct UserDetails {
 #[derive(Debug, Clone, Serialize)]
 pub struct UserHandshake {
     pub username: Username,
-    pub user_publickey: PublicKey
+    pub user_publickey: PublicKey,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ServerHandshake{
+pub struct ServerHandshake {
     pub salt: Salt,
-    pub server_publickey: PublicKey
+    pub server_publickey: PublicKey,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct OpenConstants {
     pub module: PrimeModulus,
-    pub generator: Generator
+    pub generator: Generator,
 }
 
 /// host version of a session key for a given user
@@ -371,10 +371,7 @@ pub(crate) fn calculate_p_hash(I: UsernameRef, p: &ClearTextPassword) -> Hash {
 
 /// `k = H(N | PAD(g))` (k = 3 for legacy SRP-6)
 #[allow(non_snake_case)]
-pub(crate) fn calculate_k(
-    N: &PrimeModulus,
-    g: &Generator,
-) -> MultiplierParameter {
+pub(crate) fn calculate_k(N: &PrimeModulus, g: &Generator) -> MultiplierParameter {
     HashFunc::new()
         .chain(N.to_vec().as_slice())
         .chain(g.to_array_pad_zero::<32>())

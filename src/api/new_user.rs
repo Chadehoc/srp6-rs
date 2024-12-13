@@ -1,18 +1,16 @@
 // use super::host::Handshake;
 use crate::primitives::*;
-use crate::{Result};
+use crate::Result;
 use serde::Serialize;
 
 use log::debug;
 
-
 pub trait UserTrait<const KL: usize, const SL: usize> {
-
     #[allow(non_snake_case)]
     fn start_handshake(
         &mut self,
         username: UsernameRef,
-        constants: &OpenConstants
+        constants: &OpenConstants,
     ) -> UserHandshake;
 
     #[allow(non_snake_case)]
@@ -24,10 +22,7 @@ pub trait UserTrait<const KL: usize, const SL: usize> {
         p: &ClearTextPassword,
     ) -> Result<Proof>;
 
-    fn verify_proof(
-        &mut self,
-        servers_proof: &Proof,
-    ) -> bool;
+    fn verify_proof(&mut self, servers_proof: &Proof) -> bool;
 }
 
 #[allow(non_snake_case)]
@@ -47,14 +42,12 @@ pub struct Srp6User<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
 impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> UserTrait<KEY_LENGTH, SALT_LENGTH>
     for Srp6User<KEY_LENGTH, SALT_LENGTH>
 {
-
     #[allow(non_snake_case)]
     fn start_handshake(
         &mut self,
         username: UsernameRef,
-        constants: &OpenConstants
+        constants: &OpenConstants,
     ) -> UserHandshake {
-
         let a = generate_private_key::<KEY_LENGTH>();
         debug!("a = {:?}", &a);
 
@@ -62,9 +55,9 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> UserTrait<KEY_LENGTH, SA
         self.a = a;
         self.A = A.clone();
 
-        UserHandshake{
+        UserHandshake {
             username: username.to_owned(),
-            user_publickey: A
+            user_publickey: A,
         }
     }
 
@@ -75,7 +68,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> UserTrait<KEY_LENGTH, SA
         constants: &OpenConstants,
         I: UsernameRef,
         p: &ClearTextPassword,
-    ) -> Result<Proof>{
+    ) -> Result<Proof> {
         self.B = server_handshake.server_publickey.clone();
         self.salt = server_handshake.salt.clone();
 
@@ -102,11 +95,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> UserTrait<KEY_LENGTH, SA
         Ok(self.M.clone())
     }
 
-    fn verify_proof(
-        &mut self,
-        servers_proof: &Proof,
-    ) -> bool {
-
+    fn verify_proof(&mut self, servers_proof: &Proof) -> bool {
         let my_strong_proof = calculate_strong_proof_M2::<KEY_LENGTH>(&self.A, &self.M, &self.K);
 
         if servers_proof != &my_strong_proof {
@@ -117,6 +106,5 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> UserTrait<KEY_LENGTH, SA
         }
     }
 }
-
 
 pub type Srp6user4096 = Srp6User<512, 512>;

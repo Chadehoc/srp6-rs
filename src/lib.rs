@@ -229,7 +229,7 @@ assert!(res.is_ok());
 ```
 
 ## Note on key length
-this crate provides some default keys [preconfigured and aliased][defaults].
+this crate provides some default keys [preconfigured and aliased][`get_constants`].
 The modulus prime and genrator numbers are taken from [RFC5054].
 
 ## Further details and domain vocabolary
@@ -244,7 +244,7 @@ use thiserror::Error;
 
 // public exports
 // pub mod defaults;
-// pub mod protocol_details;
+mod protocol_details;
 
 // internally available
 pub(crate) mod primitives;
@@ -253,7 +253,7 @@ mod api;
 mod big_number;
 mod hash;
 
-pub use api::{new_host::*, get_constants, new_user::*};
+pub use api::{get_constants, new_host::*, new_user::*};
 // pub use api::user::*;
 // pub use defaults::*;
 pub use primitives::{

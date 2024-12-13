@@ -1,5 +1,4 @@
-
-use crate::primitives::{Generator, PrimeModulus, OpenConstants};
+use crate::primitives::{Generator, OpenConstants, PrimeModulus};
 use hex_literal::hex;
 pub(crate) mod new_host;
 pub(crate) mod new_user;
@@ -8,7 +7,7 @@ pub fn get_constants() -> OpenConstants {
     OpenConstants {
         generator: Generator::from(5),
         module: PrimeModulus::from_bytes_be(&hex!(
-        "FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1 29024E08
+            "FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1 29024E08
             8A67CC74 020BBEA6 3B139B22 514A0879 8E3404DD EF9519B3 CD3A431B
             302B0A6D F25F1437 4FE1356D 6D51C245 E485B576 625E7EC6 F44C42E9
             A637ED6B 0BFF5CB6 F406B7ED EE386BFB 5A899FA5 AE9F2411 7C4B1FE6
@@ -27,5 +26,6 @@ pub fn get_constants() -> OpenConstants {
             233BA186 515BE7ED 1F612970 CEE2D7AF B81BDD76 2170481C D0069127
             D5B05AA9 93B4EA98 8D8FDDC1 86FFB7DC 90A6C08F 4DF435C9 34063199
             FFFFFFFF FFFFFFFF"
-    ))}
+        )),
+    }
 }
