@@ -8,18 +8,17 @@ license = "MIT"
 include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
-thiserror = "1.0"
+thiserror = "2.0.6"
 sha-1 = "0.10"
 rand = "0.8"
 num-bigint = { version = "0.4", features = ["rand"] }
 num-traits = "0.2"
 hex = "0.4"
-hex-literal = "0.3"
+hex-literal = "0.4.1"
 log = { version = "0.4", features = ["release_max_level_warn"] }
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
 
 [features]
-legacy = []
 default = []

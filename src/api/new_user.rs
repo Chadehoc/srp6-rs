@@ -17,7 +17,7 @@ pub trait UserTrait<const KL: usize, const SL: usize> {
 
     #[allow(non_snake_case)]
     fn update_handshake(
-        &mut self, 
+        &mut self,
         server_handshake: &ServerHandshake,
         constants: &OpenConstants,
         I: UsernameRef,
@@ -36,7 +36,7 @@ pub struct Srp6User<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     pub A: PublicKey,
     pub B: PublicKey,
     a: PrivateKey,
-    pub U: PublicKey, 
+    pub U: PublicKey,
     pub salt: Salt,
     pub M: Proof,
     S: PrivateKey,
@@ -76,7 +76,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> UserTrait<KEY_LENGTH, SA
 
         let a = generate_private_key::<KEY_LENGTH>();
         debug!("a = {:?}", &a);
-        
+
         let A = calculate_pubkey_A(&constants.module, &constants.generator, &a);
         self.a = a;
         self.A = A.clone();
@@ -97,7 +97,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> UserTrait<KEY_LENGTH, SA
     ) -> Result<Proof>{
         self.B = server_handshake.server_publickey.clone();
         self.salt = server_handshake.salt.clone();
-        
+
         self.U = calculate_u::<KEY_LENGTH>(&self.A, &self.B);
         let x = calculate_private_key_x(I, p, &self.salt);
         self.S = calculate_session_key_S_for_client::<KEY_LENGTH>(

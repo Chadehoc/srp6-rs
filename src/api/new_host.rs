@@ -20,8 +20,8 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
 
     /// starts the handshake with the client
     fn continue_handshake(
-        &mut self, 
-        user_details: &UserDetails, user_handshake: &UserHandshake, 
+        &mut self,
+        user_details: &UserDetails, user_handshake: &UserHandshake,
         constants: &OpenConstants)
         -> Result<ServerHandshake>;
 
@@ -38,7 +38,7 @@ pub struct Srp6<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     pub A: PublicKey,
     pub B: PublicKey,
     b: PrivateKey,
-    pub U: PublicKey, 
+    pub U: PublicKey,
     verifier: PrivateKey,
     pub salt: Salt,
     S: PrivateKey,
@@ -95,7 +95,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
 
     #[allow(non_snake_case)]
     fn continue_handshake(
-        &mut self, 
+        &mut self,
         user_details: &UserDetails,
         user_handshake: &UserHandshake,
         constants: &OpenConstants
@@ -111,10 +111,10 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
         self.B = B.clone();
         self.A = user_handshake.user_publickey.clone();
         self.U = calculate_u::<KEY_LENGTH>(&self.A, &self.B);
-        
+
         self.S = calculate_session_key_S_for_host::<KEY_LENGTH>(&constants.module, &self.A, &self.B, &self.b, &self.verifier)?;
         self.K = calculate_session_key_hash_interleave_K::<KEY_LENGTH>(&self.S);
-        self.M = calculate_proof_M::<KEY_LENGTH, SALT_LENGTH>(&constants.module, 
+        self.M = calculate_proof_M::<KEY_LENGTH, SALT_LENGTH>(&constants.module,
             &constants.generator, &user_details.username, &user_details.salt, &self.A, &self.B, &self.K);
 
         return Ok(ServerHandshake{

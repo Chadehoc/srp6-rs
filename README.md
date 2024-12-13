@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![codecov](https://codecov.io/gh/sassman/srp6-rs/branch/main/graph/badge.svg)](https://codecov.io/gh/sassman/srp6-rs)
 
-> A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6a). Version 6 (legacy) is as features available.
+> A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6a).
 
 ## About SRP
 

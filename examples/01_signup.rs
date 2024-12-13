@@ -1,11 +1,11 @@
 use srp6::*;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 fn main() {
     // this is what a user would enter in a form / terminal
     let new_username: UsernameRef = "Bob";
     let user_password: &ClearTextPassword = "secret-password";
-    
+
     let mut srp6 = Srp6_4096::new();
 
     let start = Instant::now();

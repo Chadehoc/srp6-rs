@@ -27,7 +27,7 @@ fn main() {
         let proof = srp6_user.update_handshake(
             &server_handshake,
             &constants,
-            &username, 
+            &username,
             USER_PASSWORD,
         ).unwrap();
 
