@@ -1,7 +1,6 @@
 // use super::host::Handshake;
 use crate::primitives::*;
 use crate::Result;
-use serde::Serialize;
 
 use log::debug;
 
@@ -26,7 +25,7 @@ pub trait UserTrait<const KL: usize, const SL: usize> {
 }
 
 #[allow(non_snake_case)]
-#[derive(Debug, Serialize, Default)]
+#[derive(Debug, Default)]
 pub struct Srp6User<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     pub A: PublicKey,
     pub B: PublicKey,

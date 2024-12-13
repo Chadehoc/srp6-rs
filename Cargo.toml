@@ -11,7 +11,7 @@ include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 thiserror = "2.0.6"
 sha-1 = "0.10"
 rand = "0.8"
-num-bigint = { version = "0.4", features = ["rand"] }
+num-bigint = { version = "0.4", features = ["rand", "serde"] }
 num-traits = "0.2"
 hex = "0.4"
 hex-literal = "0.4.1"

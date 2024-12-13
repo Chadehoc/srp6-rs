@@ -14,7 +14,7 @@ This scheme is applied for all variables used in the calculus.
 [RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
 */
 use log::debug;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::big_number::{BigNumber, Zero};
 use crate::hash::{hash, Digest, Hash, HashFunc, Update, HASH_LENGTH};
@@ -74,33 +74,33 @@ pub type UsernameRef<'a> = &'a str;
 pub type ClearTextPassword = str;
 
 /// [`Username`] and [`ClearTextPassword`] used on the client side
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct UserCredentials<'a> {
     pub username: UsernameRef<'a>,
     pub password: &'a ClearTextPassword,
 }
 
 /// User details composes [`Username`], [`Salt`] and [`PasswordVerifier`] in one struct
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserDetails {
     pub username: Username,
     pub salt: Salt,
     pub verifier: PasswordVerifier,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserHandshake {
     pub username: Username,
     pub user_publickey: PublicKey,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerHandshake {
     pub salt: Salt,
     pub server_publickey: PublicKey,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct OpenConstants {
     pub module: PrimeModulus,
     pub generator: Generator,
