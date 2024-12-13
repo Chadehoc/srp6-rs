@@ -33,7 +33,7 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
 
 /// Main interaction point for the server
 #[allow(non_snake_case)]
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct Srp6<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     pub A: PublicKey,
     pub B: PublicKey,
@@ -47,27 +47,6 @@ pub struct Srp6<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     verified: bool
 
 }
-
-impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> Srp6<KEY_LENGTH, SALT_LENGTH> {
-    pub const KEY_LEN: usize = KEY_LENGTH;
-    pub const SALT_LEN: usize = SALT_LENGTH;
-
-    pub fn new() -> Self {
-        Self{
-            A: PublicKey::default(),
-            B: PublicKey::default(),
-            b: PrivateKey::default(),
-            U: PublicKey::default(), 
-            verifier: PrivateKey::default(),
-            salt: Salt::default(),
-            S: PrivateKey::default(),
-            K: SessionKey::default(),
-            M: Proof::default(),
-            verified: false
-        }
-    }
-}
-
 
 impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT_LENGTH>
     for Srp6<KEY_LENGTH, SALT_LENGTH>
@@ -117,10 +96,10 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
         self.M = calculate_proof_M::<KEY_LENGTH, SALT_LENGTH>(&constants.module,
             &constants.generator, &user_details.username, &user_details.salt, &self.A, &self.B, &self.K);
 
-        return Ok(ServerHandshake{
+        Ok(ServerHandshake{
             salt: user_details.salt.clone(),
             server_publickey: B
-        });
+        })
     }
 
     fn verify_proof(
@@ -136,7 +115,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
         }
         let hamk = calculate_strong_proof_M2::<KEY_LENGTH>(&self.A, &self.M, &self.K);
         self.verified = true;
-        return Ok(hamk);
+        Ok(hamk)
 
     }
 

@@ -282,7 +282,7 @@ impl Add for BigNumber {
         self.0.add(rhs.0).into()
     }
 }
-impl<'a, 'b> Add<&'b BigNumber> for &'a BigNumber {
+impl<'b> Add<&'b BigNumber> for &BigNumber {
     type Output = BigNumber;
 
     fn add(self, rhs: &'b BigNumber) -> Self::Output {
@@ -303,7 +303,7 @@ fn should_subtract() {
     assert_eq!(a - b, BigNumber::from(5));
 }
 
-impl<'a, 'b> Sub<&'b BigNumber> for &'a BigNumber {
+impl<'b> Sub<&'b BigNumber> for &BigNumber {
     type Output = BigNumber;
 
     fn sub(self, rhs: &'b BigNumber) -> Self::Output {

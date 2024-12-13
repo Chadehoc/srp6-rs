@@ -9,8 +9,8 @@ fn main() {
     // let user = mocked::lookup_user_details("Bob");
     let username = String::from_str("Bob").unwrap();
     let constants = get_constants();
-    let mut srp6 = Srp6_4096::new();
-    let mut srp6_user = Srp6user4096::new();
+    let mut srp6 = Srp6_4096::default();
+    let mut srp6_user = Srp6user4096::default();
     let user_details = srp6.generate_new_user_secrets(&username, USER_PASSWORD, &constants);
     let mut durations: Duration = Duration::default();
     for _ in 0..500 {
@@ -31,12 +31,9 @@ fn main() {
             USER_PASSWORD,
         ).unwrap();
 
-        let hamk = match srp6.verify_proof(
+        let hamk = srp6.verify_proof(
             &proof
-        ){
-            Err(_er) => { Proof::default()},
-            Ok(value) => value
-        };
+        ).unwrap_or_default();
 
 
         assert!(srp6_user.verify_proof(&hamk));

@@ -31,7 +31,7 @@ pub trait UserTrait<const KL: usize, const SL: usize> {
 }
 
 #[allow(non_snake_case)]
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct Srp6User<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     pub A: PublicKey,
     pub B: PublicKey,
@@ -42,25 +42,6 @@ pub struct Srp6User<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     S: PrivateKey,
     K: SessionKey,
     verified: bool,
-}
-
-impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> Srp6User<KEY_LENGTH, SALT_LENGTH> {
-    pub const KEY_LEN: usize = KEY_LENGTH;
-    pub const SALT_LEN: usize = SALT_LENGTH;
-
-    pub fn new() -> Self {
-        Self{
-            A: PublicKey::default(),
-            B: PublicKey::default(),
-            a: PrivateKey::default(),
-            U: PublicKey::default(), 
-            salt: Salt::default(),
-            M: Proof::default(),
-            S: PrivateKey::default(),
-            K: SessionKey::default(),
-            verified: false
-        }
-    }
 }
 
 impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> UserTrait<KEY_LENGTH, SALT_LENGTH>
@@ -81,7 +62,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> UserTrait<KEY_LENGTH, SA
         self.a = a;
         self.A = A.clone();
 
-        return UserHandshake{
+        UserHandshake{
             username: username.to_owned(),
             user_publickey: A
         }

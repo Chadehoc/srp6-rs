@@ -327,7 +327,7 @@ pub(crate) fn calculate_pubkey_B(
     b: &PrivateKey,
 ) -> PublicKey {
     let g_mod_N = g.modpow(b, N);
-    let B = &((&calculate_k(&N, &g) * v) + g_mod_N) % N;
+    let B = &((&calculate_k(N, g) * v) + g_mod_N) % N;
     debug!("B = {:?}", &B);
 
     B

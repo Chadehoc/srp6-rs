@@ -6,7 +6,7 @@ fn main() {
     let new_username: UsernameRef = "Bob";
     let user_password: &ClearTextPassword = "secret-password";
 
-    let mut srp6 = Srp6_4096::new();
+    let mut srp6 = Srp6_4096::default();
 
     let start = Instant::now();
 
