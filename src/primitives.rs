@@ -101,7 +101,7 @@ pub struct ServerHandshake {
 }
 
 #[derive(Debug, Clone)]
-pub struct OpenConstants {
+pub struct OpenConstants<const LEN: usize> {
     pub module: PrimeModulus,
     pub generator: Generator,
 }
@@ -213,7 +213,7 @@ pub(crate) fn calculate_session_key_hash_interleave_K<const KEY_LENGTH: usize>(
 }
 
 #[allow(non_snake_case)]
-pub(crate) fn calculate_proof_M<const KEY_LENGTH: usize, const SALT_LENGTH: usize>(
+pub(crate) fn calculate_proof_M<const LEN: usize>(
     N: &PrimeModulus,
     g: &Generator,
     I: UsernameRef,
@@ -222,16 +222,16 @@ pub(crate) fn calculate_proof_M<const KEY_LENGTH: usize, const SALT_LENGTH: usiz
     B: &PublicKey,
     K: &StrongSessionKey,
 ) -> Proof {
-    let xor_hash: Hash = calculate_hash_N_xor_g::<KEY_LENGTH>(N, g);
+    let xor_hash: Hash = calculate_hash_N_xor_g::<LEN>(N, g);
     let username_hash = HashFunc::new().chain(I.as_bytes()).finalize();
     debug!("H(I) = {:?}", &username_hash);
 
     let M: Proof = HashFunc::new()
         .chain(xor_hash)
         .chain(username_hash)
-        .chain(s.to_array_pad_zero::<SALT_LENGTH>())
-        .chain(A.to_array_pad_zero::<KEY_LENGTH>())
-        .chain(B.to_array_pad_zero::<KEY_LENGTH>())
+        .chain(s.to_array_pad_zero::<LEN>())
+        .chain(A.to_array_pad_zero::<LEN>())
+        .chain(B.to_array_pad_zero::<LEN>())
         .chain(K.to_array_pad_zero::<STRONG_SESSION_KEY_LENGTH>())
         .into();
 
@@ -243,13 +243,13 @@ pub(crate) fn calculate_proof_M<const KEY_LENGTH: usize, const SALT_LENGTH: usiz
 /// todo(verify): check if padding is needed or not
 /// formula: `H(A | M | K)`
 #[allow(non_snake_case)]
-pub(crate) fn calculate_strong_proof_M2<const KEY_LENGTH: usize>(
+pub(crate) fn calculate_strong_proof_M2<const LEN: usize>(
     A: &PublicKey,
     M: &Proof,
     K: &StrongSessionKey,
 ) -> StrongProof {
     let M2: StrongProof = HashFunc::new()
-        .chain(A.to_array_pad_zero::<KEY_LENGTH>())
+        .chain(A.to_array_pad_zero::<LEN>())
         .chain(M.to_array_pad_zero::<HASH_LENGTH>())
         .chain(K.to_array_pad_zero::<STRONG_SESSION_KEY_LENGTH>())
         .into();

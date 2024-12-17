@@ -1,4 +1,4 @@
-use srp6::*;
+use chadehoc_srp6::*;
 
 fn main() {
     // this is what a user would enter in a form / terminal
@@ -7,7 +7,7 @@ fn main() {
 
     let mut srp6 = Srp6user4096::default();
     let user_details =
-        srp6.generate_new_user_secrets(new_username, user_password, &get_constants());
+        srp6.generate_new_user_secrets(new_username, user_password, &OpenConstants::default());
     assert_eq!(user_details.salt.num_bytes(), 4096 / 8);
     assert_eq!(user_details.verifier.num_bytes(), 4096 / 8);
 

@@ -1,14 +1,16 @@
 [package]
-name = "srp6"
-version = "1.0.0-alpha.6"
+name = "chadehoc-srp6"
+version = "0.0.1" # original was 1.0.0.alpha.6
 authors = ["Sven Assmann <sven.assmann.it@gmail.com>"]
-edition = "2018"
+# original authors = ["Sven Assmann <sven.assmann.it@gmail.com>"]
+# and Github user "valpaq".
+edition = "2021"
 description = "A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6 and 6a)"
 license = "MIT"
 include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
-thiserror = "1.0"
+thiserror = "1.0" # deprecated but else I have conflicts
 sha-1 = "0.10"
 rand = "0.8"
 num-bigint = { version = "0.4", features = ["rand", "serde"] }
@@ -19,6 +21,9 @@ log = { version = "0.4", features = ["release_max_level_warn"] }
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
+serde_json = "1.0.133"
 
 [features]
 default = []
+# use this in debug to remove randomness
+norand = []

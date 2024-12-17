@@ -1,14 +1,13 @@
-use srp6::*;
+use chadehoc_srp6::*;
 use std::time::{Duration, Instant};
-
-const USER_PASSWORD: &ClearTextPassword = "secret-password";
 
 fn main() {
     let username = String::from("Bob");
-    let constants = get_constants();
+    let password: &ClearTextPassword = "secret-password";
+    let constants = OpenConstants::default();
     let mut srp6_user = Srp6user4096::default();
     // new user : those are sent to the server and stored there
-    let user_details = srp6_user.generate_new_user_secrets(&username, USER_PASSWORD, &constants);
+    let user_details = srp6_user.generate_new_user_secrets(&username, password, &constants);
     // averaging durations
     let mut durations: Duration = Duration::default();
     #[cfg(debug_assertions)]
@@ -26,7 +25,7 @@ fn main() {
             .unwrap();
         // client side
         let proof = srp6_user
-            .update_handshake(&server_handshake, &constants, &username, USER_PASSWORD)
+            .update_handshake(&server_handshake, &constants, &username, password)
             .unwrap();
         // server side
         let (hamk, _secret) = srp6.verify_proof(&proof).unwrap_or_default();

@@ -1,10 +1,11 @@
-use num_bigint::{BigUint, RandBigInt};
-use rand::thread_rng;
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
+#[cfg(not(feature = "norand"))]
+use {num_bigint::RandBigInt, rand::thread_rng};
 
 /// also exporting the trait here
 pub use num_traits::Zero;
@@ -30,11 +31,18 @@ impl Default for BigNumber {
 impl BigNumber {
     /// new random initialized big number
     pub fn new_rand(n_bytes: usize) -> Self {
-        let mut rng = thread_rng();
-        let a = rng.gen_biguint((n_bytes * 8) as u64);
-        // let a = if a.is_negative() { a.abs() } else { a };
-
-        Self(a)
+        #[cfg(feature = "norand")]
+        {
+            // arbitrary, to remove randomness
+            let a = BigUint::from_bytes_le(&vec![150; n_bytes]);
+            Self(a)
+        }
+        #[cfg(not(feature = "norand"))]
+        {
+            let mut rng = thread_rng();
+            let a = rng.gen_biguint((n_bytes * 8) as u64);
+            Self(a)
+        }
     }
 
     /// [`raw`] is expected to be big endian
