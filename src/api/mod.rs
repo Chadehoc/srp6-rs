@@ -1,8 +1,8 @@
 use crate::primitives::{Generator, OpenConstants, PrimeModulus};
 use hex_literal::hex;
 
-pub(crate) mod new_host;
-pub(crate) mod new_user;
+pub(crate) mod host;
+pub(crate) mod user;
 
 impl Default for OpenConstants<512> {
     /// taken from the 4096-bit group at

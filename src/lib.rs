@@ -28,7 +28,7 @@ mod api;
 mod big_number;
 mod hash;
 
-pub use api::{new_host::*, new_user::*};
+pub use api::{host::*, user::*};
 pub use primitives::{
     ClearTextPassword, Generator, MultiplierParameter, OpenConstants, PasswordVerifier,
     PrimeModulus, PrivateKey, Proof, PublicKey, Salt, ServerHandshake, SessionKey, StrongProof,
