@@ -19,25 +19,17 @@ pub fn hash<const KEY_BYTES: usize>(a: &BigNumber, b: &BigNumber) -> BigNumber {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use super::*;
-
+    use crate::protocol_details::testdata;
     #[test]
     #[allow(non_snake_case)]
     /// u = H(A, B)
     fn should_hash_2_big_numbers() {
-        let A: BigNumber = "7BADE689AA63658C8DA684A78660BF1C62114269930D4141B9B30F75EDE466BB"
-            .try_into()
-            .unwrap();
-        let B: BigNumber = "2CEC5E45B34CB20CABC099088CCF3D6B315F12DCBE070CC2F563D5447884D917"
-            .try_into()
-            .unwrap();
-
-        let u = hash::<32>(&A, &B);
-        let exp_hash: BigNumber = "DBC0E8AE033ACA9A9066E583DC160CB741A39737"
-            .try_into()
-            .unwrap();
-        assert_eq!(&u, &exp_hash);
+        // A from official example
+        let A = BigNumber::from_bytes_be(&testdata::A_PUBLIC);
+        let B = BigNumber::from_bytes_be(&testdata::B_PUBLIC);
+        let u = hash::<128>(&A, &B);
+        let expected = BigNumber::from_bytes_be(&testdata::U);
+        assert_eq!(&u, &expected);
     }
 }

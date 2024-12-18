@@ -61,6 +61,10 @@ mod tests {
 
     use super::*;
 
+    #[cfg(feature = "norand")]
+    use crate::protocol_details::testdata;
+
+    /// Test similar to the example, full handshake but no data transfer.
     #[test]
     fn test_handshake_quick_4096() {
         let username = "Bob";
@@ -94,6 +98,7 @@ mod tests {
         println!("{title} = {val:#}")
     }
 
+    /// Test a handshake simulating data transfer (serialize/deserialize)
     #[test]
     fn test_handshake_serde_2048() {
         let username = "fred";
@@ -135,5 +140,51 @@ mod tests {
         assert!(srp6_user.verify_proof(&hamk));
         // both secrets (getter exists only for tests)
         assert!(*srp6_user.get_secret() == secret);
+    }
+
+    /// Test the handshake against an official test data.
+    #[cfg(feature = "norand")]
+    #[test]
+    fn test_official_vectors_1024() {
+        type Srp6User1024 = Srp6User<128>;
+        type Srp61024 = Srp6<128>;
+        let username = testdata::USERNAME;
+        let password: &ClearTextPassword = testdata::PASSWORD;
+        let constants = OpenConstants::default();
+        let mut srp6_user = Srp6User1024::default();
+        // new user : those are sent to the server and stored there
+        let user_details = srp6_user.generate_new_user_secrets(username, password, &constants);
+        let official_verifier = PublicKey::from_bytes_be(&testdata::VERIFIER);
+        assert_eq!(official_verifier, user_details.verifier, "verifier nok");
+        // user creates a handshake
+        let user_handshake = srp6_user.start_handshake(username, &constants);
+        let official_user_publickey = PublicKey::from_bytes_be(&testdata::A_PUBLIC);
+        assert_eq!(
+            official_user_publickey, user_handshake.user_publickey,
+            "A nok"
+        );
+        // server retrieves stored details and continues the handshake
+        let mut srp6 = Srp61024::default();
+        let server_handshake = srp6
+            .continue_handshake(&user_details, &user_handshake.user_publickey, &constants)
+            .unwrap();
+        let official_server_publickey = PublicKey::from_bytes_be(&testdata::B_PUBLIC);
+        assert_eq!(
+            official_server_publickey, server_handshake.server_publickey,
+            "B nok"
+        );
+        // client side
+        let proof = srp6_user
+            .update_handshake(&server_handshake, &constants, username, password)
+            .unwrap();
+        // server side
+        let (hamk, secret) = srp6.verify_proof(&proof).unwrap();
+        // client side
+        assert!(srp6_user.verify_proof(&hamk));
+        // both secrets
+        assert_eq!(*srp6_user.get_secret(), secret);
+        // compare official numbers
+        let expected_secret = PrivateKey::from_bytes_be(&testdata::SECRET);
+        assert_eq!(expected_secret, secret, "S nok");
     }
 }

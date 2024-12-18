@@ -11,7 +11,7 @@ use {num_bigint::RandBigInt, rand::thread_rng};
 pub use num_traits::Zero;
 pub use std::ops::{Add, Mul, Rem, Sub};
 
-/// [`BigNumber`] helps to work with big numbers as in openssl used.
+/// Wraps a `num_bigint::BigUint` to customize it.
 #[derive(PartialEq, Clone, PartialOrd, Serialize, Deserialize)]
 pub struct BigNumber(BigUint);
 
@@ -30,19 +30,11 @@ impl Default for BigNumber {
 
 impl BigNumber {
     /// new random initialized big number
+    #[cfg(not(feature = "norand"))]
     pub fn new_rand(n_bytes: usize) -> Self {
-        #[cfg(feature = "norand")]
-        {
-            // arbitrary, to remove randomness
-            let a = BigUint::from_bytes_le(&vec![150; n_bytes]);
-            Self(a)
-        }
-        #[cfg(not(feature = "norand"))]
-        {
-            let mut rng = thread_rng();
-            let a = rng.gen_biguint((n_bytes * 8) as u64);
-            Self(a)
-        }
+        let mut rng = thread_rng();
+        let a = rng.gen_biguint((n_bytes * 8) as u64);
+        Self(a)
     }
 
     /// [`raw`] is expected to be big endian
@@ -81,23 +73,26 @@ impl BigNumber {
         (self.0.bits() as usize + 7) / 8
     }
 
-    /// returns the byte vec in little endian byte order
+    /// returns the byte vec in big endian byte order
     pub fn to_vec(&self) -> Vec<u8> {
-        self.0.to_bytes_le()
+        // the initial implementation used wrongly to_bytes_le
+        self.0.to_bytes_be()
     }
 
     pub fn to_array<const N: usize>(&self) -> [u8; N] {
         self.to_array_pad_zero::<N>()
     }
 
-    /// returns the byte vec in little endian byte order, padded by 0 for `len` bytes
+    /// returns the byte vec in big endian byte order, padded by 0 for `len` bytes
     pub fn to_array_pad_zero<const N: usize>(&self) -> [u8; N] {
-        let mut r = [0_u8; N];
+        // the initial implementation used wrongly little-indian
+        // big-endian padding is in front
+        let offset = N - self.num_bytes();
+        let mut result = [0_u8; N];
         for (i, x) in self.to_vec().iter().take(N).enumerate() {
-            r[i] = *x;
+            result[i + offset] = *x;
         }
-
-        r
+        result
     }
 }
 
@@ -139,7 +134,7 @@ impl From<BigUint> for BigNumber {
 
 impl<const N: usize> From<[u8; N]> for BigNumber {
     fn from(k: [u8; N]) -> Self {
-        Self::from_bytes_le(&k)
+        Self::from_bytes_be(&k)
     }
 }
 
@@ -151,7 +146,7 @@ impl From<Sha1> for BigNumber {
 
 impl From<&[u8]> for BigNumber {
     fn from(somewhere: &[u8]) -> Self {
-        Self::from_bytes_le(somewhere)
+        Self::from_bytes_be(somewhere)
     }
 }
 
@@ -189,21 +184,22 @@ fn should_try_from_string() {
 
     let s = "ab11cd".to_string();
     let x: BigNumber = s.try_into().unwrap();
-    assert_eq!(x.to_vec(), &[0xcd, 0x11, 0xab]);
+    assert_eq!(x.to_vec(), &[0xAB, 0x11, 0xcd]);
 }
 
 #[test]
 fn should_from_bytes() {
     let x = BigNumber::from_bytes_be(&[0xab, 0x11, 0xcd]);
-    assert_eq!(x.to_vec(), &[0xcd, 0x11, 0xab]);
+    assert_eq!(x.to_vec(), &[0xAB, 0x11, 0xCD]);
 }
 
 #[test]
 fn should_to_vec() {
     let x = BigNumber::from_hex_str_be("ab11cd").unwrap();
-    assert_eq!(x.to_vec(), &[0xcd, 0x11, 0xab]);
+    assert_eq!(x.to_vec(), &[0xAB, 0x11, 0xCD]);
 }
 
+#[cfg(not(feature = "norand"))]
 #[test]
 fn should_random_initialize() {
     let x = BigNumber::new_rand(10);
@@ -213,7 +209,7 @@ fn should_random_initialize() {
 #[test]
 fn should_pad_0() {
     let x = BigNumber::from_bytes_be(&[0x11, 0xcd]);
-    assert_eq!(x.to_array_pad_zero::<3>(), [0xcd_u8, 0x11, 0]);
+    assert_eq!(x.to_array_pad_zero::<3>(), [0, 0x11, 0xcd_u8]);
 }
 
 #[test]

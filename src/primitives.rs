@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::big_number::{BigNumber, Zero};
 use crate::hash::{hash, Digest, Hash, HashFunc, Update, HASH_LENGTH};
+#[cfg(feature = "norand")]
+use crate::protocol_details::testdata;
 use crate::{Result, Srp6Error};
 
 const STRONG_SESSION_KEY_LENGTH: usize = HASH_LENGTH * 2;
@@ -159,7 +161,7 @@ pub(crate) fn calculate_session_key_S_for_client<const KEY_LENGTH: usize>(
     let u = &calculate_u::<KEY_LENGTH>(A, B);
     let exp: BigNumber = a + &(u * x);
     let g_mod_x = &g.modpow(x, N);
-    let to_sub = (&calculate_k(N, g) * g_mod_x) % N.clone();
+    let to_sub = (&calculate_k::<KEY_LENGTH>(N, g) * g_mod_x) % N.clone();
     // let base = B - ;
     let base = if B < &to_sub {
         &(N - &to_sub) + B
@@ -320,14 +322,18 @@ pub(crate) fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey
 /// [`PublicKey`][B] is the hosts public key
 /// `B = kv + g^b`
 #[allow(non_snake_case)]
-pub(crate) fn calculate_pubkey_B(
+pub(crate) fn calculate_pubkey_B<const LEN: usize>(
     N: &PrimeModulus,
     g: &Generator,
     v: &PasswordVerifier,
     b: &PrivateKey,
 ) -> PublicKey {
     let g_mod_N = g.modpow(b, N);
-    let B = &((&calculate_k(N, g) * v) + g_mod_N) % N;
+    let k = calculate_k::<LEN>(N, g);
+    let B = &((&k * v) + g_mod_N) % N;
+
+    dbg!(k);
+
     debug!("B = {:?}", &B);
 
     B
@@ -349,10 +355,8 @@ pub(crate) fn calculate_private_key_x(
     s: &Salt,
 ) -> PrivateKey {
     let ph = calculate_p_hash(I, p);
-    let x: PrivateKey = HashFunc::new()
-        .chain(s.to_vec().as_slice())
-        .chain(ph)
-        .into();
+    let x = HashFunc::new().chain(s.to_vec().as_slice()).chain(ph);
+    let x: PrivateKey = x.into();
     debug!("x = {:?}", &x);
 
     x
@@ -371,19 +375,36 @@ pub(crate) fn calculate_p_hash(I: UsernameRef, p: &ClearTextPassword) -> Hash {
 
 /// `k = H(N | PAD(g))` (k = 3 for legacy SRP-6)
 #[allow(non_snake_case)]
-pub(crate) fn calculate_k(N: &PrimeModulus, g: &Generator) -> MultiplierParameter {
+pub(crate) fn calculate_k<const LEN: usize>(
+    N: &PrimeModulus,
+    g: &Generator,
+) -> MultiplierParameter {
     HashFunc::new()
         .chain(N.to_vec().as_slice())
-        .chain(g.to_array_pad_zero::<32>())
+        .chain(g.to_array_pad_zero::<LEN>())
         .into()
 }
 
 /// [`PrivateKey`] `a` or `b` is in fact just a big (positive) random number
-pub(crate) fn generate_private_key<const KEY_LENGTH: usize>() -> PrivateKey {
-    PrivateKey::new_rand(KEY_LENGTH)
+pub(crate) fn generate_private_key_a<const KEY_LENGTH: usize>() -> PrivateKey {
+    #[cfg(not(feature = "norand"))]
+    return PrivateKey::new_rand(KEY_LENGTH);
+    #[cfg(feature = "norand")]
+    PrivateKey::from_bytes_be(&testdata::A_PRIVATE)
+}
+
+/// [`PrivateKey`] `a` or `b` is in fact just a big (positive) random number
+pub(crate) fn generate_private_key_b<const KEY_LENGTH: usize>() -> PrivateKey {
+    #[cfg(not(feature = "norand"))]
+    return PrivateKey::new_rand(KEY_LENGTH);
+    #[cfg(feature = "norand")]
+    PrivateKey::from_bytes_be(&testdata::B_PRIVATE)
 }
 
 /// [`Salt`] `s` is a random number
 pub(crate) fn generate_salt<const SALT_LENGTH: usize>() -> Salt {
-    Salt::new_rand(SALT_LENGTH)
+    #[cfg(not(feature = "norand"))]
+    return Salt::new_rand(SALT_LENGTH);
+    #[cfg(feature = "norand")]
+    PrivateKey::from_bytes_be(&testdata::SALT)
 }

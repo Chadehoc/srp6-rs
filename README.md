@@ -10,7 +10,7 @@ protocol (SRP version 6a).
 
 The first fork had flaws for use in a real client-server setting:
 illogical serialization directions, funny constants for 2048 version,
-changes in protocol, opaque types...
+changes in protocol, big/little-endian errors...
 
 The second fork fixed many things, but remained incomplete and not directly
 usable with a true client and server (instead of a simulation in examples).
@@ -49,6 +49,12 @@ is at:
 
 [RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
 [RFC5054]: https://datatracker.ietf.org/doc/html/rfc5054#appendix-A
+
+## Test Data
+
+Run tests with the 'norand' feature to test against the data provided in RFC 5054 appendix B.
+
+The test is called `test_official_vectors_1024`.
 
 ## License
 

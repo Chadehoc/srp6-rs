@@ -40,10 +40,10 @@ impl<const LEN: usize> HostAPI<LEN> for Srp6<LEN> {
         user_publickey: &PublicKey,
         constants: &OpenConstants<LEN>,
     ) -> Result<ServerHandshake> {
-        let b = generate_private_key::<LEN>();
+        let b = generate_private_key_b::<LEN>();
         debug!("b = {:?}", &b);
 
-        let B = calculate_pubkey_B(
+        let B = calculate_pubkey_B::<LEN>(
             &constants.module,
             &constants.generator,
             &user_details.verifier,
