@@ -4,35 +4,6 @@ use crate::Result;
 
 use log::debug;
 
-pub trait UserTrait<const LEN: usize> {
-    /// for new users, or if they recover their password
-    #[allow(non_snake_case)]
-    fn generate_new_user_secrets(
-        &mut self,
-        I: UsernameRef,
-        p: &ClearTextPassword,
-        constants: &OpenConstants<LEN>,
-    ) -> UserDetails;
-
-    #[allow(non_snake_case)]
-    fn start_handshake(
-        &mut self,
-        username: UsernameRef,
-        constants: &OpenConstants<LEN>,
-    ) -> UserHandshake;
-
-    #[allow(non_snake_case)]
-    fn update_handshake(
-        &mut self,
-        server_handshake: &ServerHandshake,
-        constants: &OpenConstants<LEN>,
-        I: UsernameRef,
-        p: &ClearTextPassword,
-    ) -> Result<Proof>;
-
-    fn verify_proof(&mut self, servers_proof: &Proof) -> bool;
-}
-
 #[allow(non_snake_case)]
 #[derive(Debug, Default)]
 pub struct Srp6User<const LEN: usize> {
@@ -44,20 +15,12 @@ pub struct Srp6User<const LEN: usize> {
     pub M: Proof,
     S: PrivateKey,
     K: SessionKey,
-    verified: bool,
 }
 
-#[cfg(test)]
 impl<const LEN: usize> Srp6User<LEN> {
-    pub(crate) fn get_secret(&self) -> &PrivateKey {
-        &self.S
-    }
-}
-
-impl<const LEN: usize> UserTrait<LEN> for Srp6User<LEN> {
     /// creates a new [`Salt`] `s` and [`PasswordVerifier`] `v` for a new user
     #[allow(non_snake_case)]
-    fn generate_new_user_secrets(
+    pub fn generate_new_user_secrets(
         &mut self,
         I: UsernameRef,
         p: &ClearTextPassword,
@@ -76,7 +39,7 @@ impl<const LEN: usize> UserTrait<LEN> for Srp6User<LEN> {
     }
 
     #[allow(non_snake_case)]
-    fn start_handshake(
+    pub fn start_handshake(
         &mut self,
         username: UsernameRef,
         constants: &OpenConstants<LEN>,
@@ -95,7 +58,7 @@ impl<const LEN: usize> UserTrait<LEN> for Srp6User<LEN> {
     }
 
     #[allow(non_snake_case)]
-    fn update_handshake(
+    pub fn update_handshake(
         &mut self,
         server_handshake: &ServerHandshake,
         constants: &OpenConstants<LEN>,
@@ -128,14 +91,12 @@ impl<const LEN: usize> UserTrait<LEN> for Srp6User<LEN> {
         Ok(self.M.clone())
     }
 
-    fn verify_proof(&mut self, servers_proof: &Proof) -> bool {
+    pub fn verify_proof(&self, servers_proof: &Proof) -> Option<PrivateKey> {
         let my_strong_proof = calculate_strong_proof_M2::<LEN>(&self.A, &self.M, &self.K);
-
-        if servers_proof != &my_strong_proof {
-            false
+        if servers_proof == &my_strong_proof {
+            Some(self.S.clone())
         } else {
-            self.verified = true;
-            true
+            None
         }
     }
 }

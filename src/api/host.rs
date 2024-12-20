@@ -5,19 +5,6 @@ use crate::Srp6Error;
 
 use log::debug;
 
-/// this trait provides a higher level api
-pub trait HostAPI<const LEN: usize> {
-    /// starts the handshake with the client
-    fn continue_handshake(
-        &mut self,
-        user_details: &UserDetails,
-        user_publickey: &PublicKey,
-        constants: &OpenConstants<LEN>,
-    ) -> Result<ServerHandshake>;
-
-    fn verify_proof(&mut self, users_proof: &Proof) -> Result<(Proof, PrivateKey)>;
-}
-
 /// Main interaction point for the server
 #[allow(non_snake_case)]
 #[derive(Debug, Default)]
@@ -32,9 +19,9 @@ pub struct Srp6<const LEN: usize> {
     verified: bool,
 }
 
-impl<const LEN: usize> HostAPI<LEN> for Srp6<LEN> {
+impl<const LEN: usize> Srp6<LEN> {
     #[allow(non_snake_case)]
-    fn continue_handshake(
+    pub fn continue_handshake(
         &mut self,
         user_details: &UserDetails,
         user_publickey: &PublicKey,
@@ -79,7 +66,7 @@ impl<const LEN: usize> HostAPI<LEN> for Srp6<LEN> {
         })
     }
 
-    fn verify_proof(&mut self, users_proof: &Proof) -> Result<(Proof, PrivateKey)> {
+    pub fn verify_proof(&mut self, users_proof: &Proof) -> Result<(Proof, PrivateKey)> {
         if self.M != *users_proof {
             // println!("{} != {}", self.M, users_proof);
             // println!("{:?}", self);

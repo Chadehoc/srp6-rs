@@ -7,8 +7,8 @@ An implementation of Secure Remote Password (SRP6) authentication protocol.
 See the examples.
 
 # Note on key length
-this crate provides some default keys [preconfigured and aliased][`get_constants`].
-The modulus prime and genrator numbers are taken from [RFC5054].
+this crate provides some default keys (as [`OpenConstants`]).
+The modulus prime and generator numbers are taken from [RFC5054].
 
 # Further details and domain vocabolary
 - You can find the documentation of SRP6 [variables in a dedicated module][`protocol_details`].
@@ -18,8 +18,11 @@ The modulus prime and genrator numbers are taken from [RFC5054].
 
 [RFC5054]: (https://datatracker.ietf.org/doc/html/rfc5054)
 */
-use thiserror::Error;
+use derive_more::{Display, Error};
 
+#[cfg(doc)]
+pub mod protocol_details;
+#[cfg(not(doc))]
 mod protocol_details;
 
 pub(crate) mod primitives;
@@ -39,21 +42,21 @@ pub use std::convert::TryInto;
 /// encapsulates a [`Srp6Error`]
 pub type Result<T> = std::result::Result<T, Srp6Error>;
 
-#[derive(Error, Debug, PartialEq, serde::Serialize)]
+#[derive(Error, Display, Debug, PartialEq, serde::Serialize)]
 pub enum Srp6Error {
-    #[error(
-        "The provided key length ({given:?} byte) does not match the expected ({expected:?} byte)"
+    #[display(
+        "The provided key length ({given} bytes) does not match the expected ({expected} byte)"
     )]
     KeyLengthMismatch { given: usize, expected: usize },
 
-    #[error("The provided proof is invalid")]
-    InvalidProof(Proof),
+    #[display("The provided proof is invalid")]
+    InvalidProof(#[error(not(source))] Proof),
 
-    #[error("The provided strong proof is invalid")]
-    InvalidStrongProof(StrongProof),
+    #[display("The provided strong proof is invalid")]
+    InvalidStrongProof(#[error(not(source))] StrongProof),
 
-    #[error("The provided public key is invalid")]
-    InvalidPublicKey(PublicKey),
+    #[display("The provided public key is invalid")]
+    InvalidPublicKey(#[error(not(source))] PublicKey),
 }
 
 #[cfg(test)]
@@ -87,9 +90,9 @@ mod tests {
         // server side
         let (hamk, secret) = srp6.verify_proof(&proof).unwrap();
         // client side
-        assert!(srp6_user.verify_proof(&hamk));
+        let secret2 = srp6_user.verify_proof(&hamk).expect("invalid server proof");
         // both secrets
-        assert!(*srp6_user.get_secret() == secret);
+        assert_eq!(secret2, secret, "not same secrets");
     }
 
     #[allow(unused_variables)]
@@ -137,9 +140,9 @@ mod tests {
         trace("sproof", &transfer);
         // client side
         let hamk = serde_json::from_str::<Proof>(&transfer).unwrap();
-        assert!(srp6_user.verify_proof(&hamk));
-        // both secrets (getter exists only for tests)
-        assert!(*srp6_user.get_secret() == secret);
+        let secret2 = srp6_user.verify_proof(&hamk).expect("invalid server proof");
+        // both secrets
+        assert_eq!(secret2, secret, "not same secrets");
     }
 
     /// Test the handshake against an official test data.
@@ -180,9 +183,9 @@ mod tests {
         // server side
         let (hamk, secret) = srp6.verify_proof(&proof).unwrap();
         // client side
-        assert!(srp6_user.verify_proof(&hamk));
+        let secret2 = srp6_user.verify_proof(&hamk).expect("invalid server proof");
         // both secrets
-        assert_eq!(*srp6_user.get_secret(), secret);
+        assert_eq!(secret2, secret, "not same secrets");
         // compare official numbers
         let expected_secret = PrivateKey::from_bytes_be(&testdata::SECRET);
         assert_eq!(expected_secret, secret, "S nok");

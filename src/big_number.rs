@@ -1,9 +1,9 @@
+use derive_more::Error;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
-use thiserror::Error;
 #[cfg(not(feature = "norand"))]
 use {num_bigint::RandBigInt, rand::thread_rng};
 
@@ -15,9 +15,9 @@ pub use std::ops::{Add, Mul, Rem, Sub};
 #[derive(PartialEq, Clone, PartialOrd, Serialize, Deserialize)]
 pub struct BigNumber(BigUint);
 
-#[derive(Error, Debug)]
+#[derive(Error, derive_more::Display, Debug)]
 pub enum BigNumberError {
-    #[error("Invalid hex string.")]
+    #[display("Invalid hex string.")]
     InvalidHexStr,
 }
 

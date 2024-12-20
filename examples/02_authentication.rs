@@ -2,12 +2,12 @@ use chadehoc_srp6::*;
 use std::time::{Duration, Instant};
 
 fn main() {
-    let username = String::from("Bob");
+    let username = "Bob";
     let password: &ClearTextPassword = "secret-password";
     let constants = OpenConstants::default();
     let mut srp6_user = Srp6user4096::default();
     // new user : those are sent to the server and stored there
-    let user_details = srp6_user.generate_new_user_secrets(&username, password, &constants);
+    let user_details = srp6_user.generate_new_user_secrets(username, password, &constants);
     // averaging durations
     let mut durations: Duration = Duration::default();
     #[cfg(debug_assertions)]
@@ -17,7 +17,7 @@ fn main() {
     for _ in 0..NLOOPS {
         let start = Instant::now();
         // user creates a handshake
-        let user_handshake = srp6_user.start_handshake(&username, &constants);
+        let user_handshake = srp6_user.start_handshake(username, &constants);
         // server retrieves stored details and continues the handshake
         let mut srp6 = Srp6_4096::default();
         let server_handshake = srp6
@@ -25,15 +25,17 @@ fn main() {
             .unwrap();
         // client side
         let proof = srp6_user
-            .update_handshake(&server_handshake, &constants, &username, password)
+            .update_handshake(&server_handshake, &constants, username, password)
             .unwrap();
         // server side
-        let (hamk, _secret) = srp6.verify_proof(&proof).unwrap_or_default();
+        let (hamk, secret) = srp6.verify_proof(&proof).expect("invalid client proof");
         // client side
-        assert!(srp6_user.verify_proof(&hamk));
-
+        let secret2 = srp6_user.verify_proof(&hamk).expect("invalid server proof");
+        // end of processing
         let duration = start.elapsed();
-        durations = durations.checked_add(duration).unwrap()
+        durations = durations.checked_add(duration).unwrap();
+        // secrets are the same
+        assert_eq!(secret2, secret, "not same secrets");
     }
 
     println!("Time elapsed in auth is: {:?}", durations / NLOOPS);

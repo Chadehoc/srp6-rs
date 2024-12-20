@@ -56,6 +56,11 @@ Run tests with the 'norand' feature to test against the data provided in RFC 505
 
 The test is called `test_official_vectors_1024`.
 
+## TODO
+
+- unwrap BigUInt?
+- need less clone()
+
 ## License
 
 - **[MIT License](LICENSE)**
