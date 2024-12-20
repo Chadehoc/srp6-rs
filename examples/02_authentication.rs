@@ -5,9 +5,8 @@ fn main() {
     let username = "Bob";
     let password: &ClearTextPassword = "secret-password";
     let constants = OpenConstants::default();
-    let mut srp6_user = Srp6user4096::default();
     // new user : those are sent to the server and stored there
-    let user_details = srp6_user.generate_new_user_secrets(username, password, &constants);
+    let user_details = Srp6user4096::generate_new_user_secrets(username, password, &constants);
     // averaging durations
     let mut durations: Duration = Duration::default();
     #[cfg(debug_assertions)]
@@ -17,6 +16,7 @@ fn main() {
     for _ in 0..NLOOPS {
         let start = Instant::now();
         // user creates a handshake
+        let mut srp6_user = Srp6user4096::default();
         let user_handshake = srp6_user.start_handshake(username, &constants);
         // server retrieves stored details and continues the handshake
         let mut srp6 = Srp6_4096::default();

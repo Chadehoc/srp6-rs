@@ -21,19 +21,18 @@ impl<const LEN: usize> Srp6User<LEN> {
     /// creates a new [`Salt`] `s` and [`PasswordVerifier`] `v` for a new user
     #[allow(non_snake_case)]
     pub fn generate_new_user_secrets(
-        &mut self,
         I: UsernameRef,
         p: &ClearTextPassword,
         constants: &OpenConstants<LEN>,
     ) -> UserDetails {
-        self.salt = generate_salt::<LEN>();
+        let salt = generate_salt::<LEN>();
         // let s = BigNumber::from_hex_str_be("FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED5290").unwrap();
-        let x = calculate_private_key_x(I, p, &self.salt);
+        let x = calculate_private_key_x(I, p, &salt);
         let verifier = calculate_password_verifier_v(&constants.module, &constants.generator, &x);
 
         UserDetails {
             username: I.to_owned(),
-            salt: self.salt.clone(),
+            salt,
             verifier,
         }
     }
@@ -91,10 +90,10 @@ impl<const LEN: usize> Srp6User<LEN> {
         Ok(self.M.clone())
     }
 
-    pub fn verify_proof(&self, servers_proof: &Proof) -> Option<PrivateKey> {
+    pub fn verify_proof(self, servers_proof: &Proof) -> Option<PrivateKey> {
         let my_strong_proof = calculate_strong_proof_M2::<LEN>(&self.A, &self.M, &self.K);
         if servers_proof == &my_strong_proof {
-            Some(self.S.clone())
+            Some(self.S)
         } else {
             None
         }

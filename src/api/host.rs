@@ -16,7 +16,6 @@ pub struct Srp6<const LEN: usize> {
     S: PrivateKey,
     K: SessionKey,
     M: Proof,
-    verified: bool,
 }
 
 impl<const LEN: usize> Srp6<LEN> {
@@ -66,15 +65,14 @@ impl<const LEN: usize> Srp6<LEN> {
         })
     }
 
-    pub fn verify_proof(&mut self, users_proof: &Proof) -> Result<(Proof, PrivateKey)> {
+    pub fn verify_proof(self, users_proof: &Proof) -> Result<(Proof, PrivateKey)> {
         if self.M != *users_proof {
             // println!("{} != {}", self.M, users_proof);
             // println!("{:?}", self);
             return Err(Srp6Error::InvalidProof(users_proof.clone()));
         }
         let hamk = calculate_strong_proof_M2::<LEN>(&self.A, &self.M, &self.K);
-        self.verified = true;
-        Ok((hamk, self.S.clone()))
+        Ok((hamk, self.S))
     }
 }
 

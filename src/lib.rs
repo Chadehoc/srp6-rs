@@ -73,10 +73,10 @@ mod tests {
         let username = "Bob";
         let password: &ClearTextPassword = "secret-password";
         let constants = OpenConstants::default();
-        let mut srp6_user = Srp6user4096::default();
         // new user : those are sent to the server and stored there
-        let user_details = srp6_user.generate_new_user_secrets(username, password, &constants);
+        let user_details = Srp6user4096::generate_new_user_secrets(username, password, &constants);
         // user creates a handshake
+        let mut srp6_user = Srp6user4096::default();
         let user_handshake = srp6_user.start_handshake(username, &constants);
         // server retrieves stored details and continues the handshake
         let mut srp6 = Srp6_4096::default();
@@ -107,14 +107,14 @@ mod tests {
         let username = "fred";
         let password: &ClearTextPassword = "password_fred";
         let constants = OpenConstants::default();
-        let mut srp6_user = Srp6user2048::default();
         // new user : those are sent to the server and stored there
-        let user_details = srp6_user.generate_new_user_secrets(username, password, &constants);
+        let user_details = Srp6user2048::generate_new_user_secrets(username, password, &constants);
         let transfer = serde_json::to_string(&user_details).unwrap();
         trace("details", &transfer);
         // server side (stores)
         let user_details = serde_json::from_str::<UserDetails>(&transfer).unwrap();
         // user creates a handshake
+        let mut srp6_user = Srp6user2048::default();
         let user_handshake = srp6_user.start_handshake(username, &constants);
         let transfer = serde_json::to_string(&user_handshake).unwrap();
         trace("user_hs", &transfer);
@@ -154,12 +154,12 @@ mod tests {
         let username = testdata::USERNAME;
         let password: &ClearTextPassword = testdata::PASSWORD;
         let constants = OpenConstants::default();
-        let mut srp6_user = Srp6User1024::default();
         // new user : those are sent to the server and stored there
-        let user_details = srp6_user.generate_new_user_secrets(username, password, &constants);
+        let user_details = Srp6User1024::generate_new_user_secrets(username, password, &constants);
         let official_verifier = PublicKey::from_bytes_be(&testdata::VERIFIER);
         assert_eq!(official_verifier, user_details.verifier, "verifier nok");
         // user creates a handshake
+        let mut srp6_user = Srp6User1024::default();
         let user_handshake = srp6_user.start_handshake(username, &constants);
         let official_user_publickey = PublicKey::from_bytes_be(&testdata::A_PUBLIC);
         assert_eq!(

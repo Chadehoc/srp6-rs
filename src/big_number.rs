@@ -231,17 +231,11 @@ fn should_modulo_ref() {
     let a = &BigNumber::from(10);
     assert_eq!(a.rem(&BigNumber::from(4)), BigNumber::from(10 % 4));
 }
-impl Rem for BigNumber {
-    type Output = Self;
 
-    fn rem(self, rhs: Self) -> Self::Output {
-        (&self).rem(&rhs)
-    }
-}
 #[test]
 fn should_modulo() {
     let exp = BigNumber::from(7 % 6);
-    assert_eq!(BigNumber::from(7) % BigNumber::from(6), exp);
+    assert_eq!(&BigNumber::from(7) % &BigNumber::from(6), exp);
 }
 // endregion
 
