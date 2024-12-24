@@ -331,9 +331,6 @@ pub(crate) fn calculate_pubkey_B<const LEN: usize>(
     let g_mod_N = g.modpow(b, N);
     let k = calculate_k::<LEN>(N, g);
     let B = &((&k * v) + g_mod_N) % N;
-
-    dbg!(k);
-
     debug!("B = {:?}", &B);
 
     B

@@ -1,6 +1,6 @@
 // use super::host::Handshake;
 use crate::primitives::*;
-use crate::Result;
+use crate::{Result, Srp6Error};
 
 use log::debug;
 
@@ -64,6 +64,12 @@ impl<const LEN: usize> Srp6User<LEN> {
         I: UsernameRef,
         p: &ClearTextPassword,
     ) -> Result<Proof> {
+        if server_handshake.server_publickey.num_bytes() > LEN {
+            return Err(Srp6Error::KeyLengthMismatch {
+                given: server_handshake.server_publickey.num_bytes(),
+                expected: LEN,
+            });
+        }
         self.B = server_handshake.server_publickey.clone();
         self.salt = server_handshake.salt.clone();
 

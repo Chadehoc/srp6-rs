@@ -87,7 +87,11 @@ impl BigNumber {
     pub fn to_array_pad_zero<const N: usize>(&self) -> [u8; N] {
         // the initial implementation used wrongly little-indian
         // big-endian padding is in front
-        let offset = N - self.num_bytes();
+        let nb = self.num_bytes();
+        // may happen if client and server not using same LEN,
+        // better panic here, should be verified sooner
+        assert!(nb <= N, "Padding to {N} from {nb} bytes");
+        let offset = N - nb;
         let mut result = [0_u8; N];
         for (i, x) in self.to_vec().iter().take(N).enumerate() {
             result[i + offset] = *x;

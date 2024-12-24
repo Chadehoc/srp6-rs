@@ -190,4 +190,54 @@ mod tests {
         let expected_secret = PrivateKey::from_bytes_be(&testdata::SECRET);
         assert_eq!(expected_secret, secret, "S nok");
     }
+
+    #[test]
+    fn test_length_mismatch_1() {
+        let username = "Bob";
+        let password: &ClearTextPassword = "secret-password";
+        // client is 4096
+        let user_constants = OpenConstants::default();
+        let user_details =
+            Srp6user4096::generate_new_user_secrets(username, password, &user_constants);
+        let mut srp6_user = Srp6user4096::default();
+        let user_handshake = srp6_user.start_handshake(username, &user_constants);
+        // server is 2048
+        let server_constants = OpenConstants::default();
+        let mut srp6 = Srp6_2048::default();
+        let err = srp6
+            .continue_handshake(
+                &user_details,
+                &user_handshake.user_publickey,
+                &server_constants,
+            )
+            .unwrap_err();
+        assert!(matches!(err, Srp6Error::KeyLengthMismatch { .. }));
+    }
+
+    #[test]
+    fn test_length_mismatch_2() {
+        let username = "Bob";
+        let password: &ClearTextPassword = "secret-password";
+        // client is 2048
+        let user_constants = OpenConstants::default();
+        let user_details =
+            Srp6user2048::generate_new_user_secrets(username, password, &user_constants);
+        let mut srp6_user = Srp6user2048::default();
+        let user_handshake = srp6_user.start_handshake(username, &user_constants);
+        // server is 4096
+        let server_constants = OpenConstants::default();
+        let mut srp6 = Srp6_4096::default();
+        let server_handshake = srp6
+            .continue_handshake(
+                &user_details,
+                &user_handshake.user_publickey,
+                &server_constants,
+            )
+            .unwrap();
+        // client will detect
+        let err = srp6_user
+            .update_handshake(&server_handshake, &user_constants, username, password)
+            .unwrap_err();
+        assert!(matches!(err, Srp6Error::KeyLengthMismatch { .. }));
+    }
 }

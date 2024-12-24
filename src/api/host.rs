@@ -26,6 +26,12 @@ impl<const LEN: usize> Srp6<LEN> {
         user_publickey: &PublicKey,
         constants: &OpenConstants<LEN>,
     ) -> Result<ServerHandshake> {
+        if user_publickey.num_bytes() > LEN {
+            return Err(Srp6Error::KeyLengthMismatch {
+                given: user_publickey.num_bytes(),
+                expected: LEN,
+            });
+        }
         let b = generate_private_key_b::<LEN>();
         debug!("b = {:?}", &b);
 
