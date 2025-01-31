@@ -77,7 +77,8 @@ The test is called `test_official_vectors_1024`.
 */
 
 /// Test values defined in RFC 5054 appendix B (for 1024 version)
-#[allow(dead_code)]
+// #[allow(dead_code)]
+#[cfg(test)]
 pub mod testdata {
     use hex_literal::hex;
 

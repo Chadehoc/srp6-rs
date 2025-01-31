@@ -1,12 +1,15 @@
 // use super::host::Handshake;
+use crate::big_number::SerUint;
 use crate::primitives::*;
 use crate::{Result, Srp6Error};
 
+use crypto_bigint::modular::BoxedMontyParams;
 use log::debug;
+use std::sync::Arc;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Default)]
-pub struct Srp6User<const LEN: usize> {
+pub struct Srp6User<const KEYLEN: usize> {
     pub A: PublicKey,
     pub B: PublicKey,
     a: PrivateKey,
@@ -17,17 +20,17 @@ pub struct Srp6User<const LEN: usize> {
     K: SessionKey,
 }
 
-impl<const LEN: usize> Srp6User<LEN> {
+impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     /// creates a new [`Salt`] `s` and [`PasswordVerifier`] `v` for a new user
     #[allow(non_snake_case)]
     pub fn generate_new_user_secrets(
         I: UsernameRef,
         p: &ClearTextPassword,
-        constants: &OpenConstants<LEN>,
+        constants: &OpenConstants<KEYLEN>,
     ) -> UserDetails {
-        let salt = generate_salt::<LEN>();
+        let salt = generate_salt(KEYLEN);
         // let s = BigNumber::from_hex_str_be("FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED5290").unwrap();
-        let x = calculate_private_key_x(I, p, &salt);
+        let x = calculate_private_key_x::<KEYLEN>(I, p, &salt);
         let verifier = calculate_password_verifier_v(&constants.module, &constants.generator, &x);
 
         UserDetails {
@@ -41,9 +44,9 @@ impl<const LEN: usize> Srp6User<LEN> {
     pub fn start_handshake(
         &mut self,
         username: UsernameRef,
-        constants: &OpenConstants<LEN>,
+        constants: &OpenConstants<KEYLEN>,
     ) -> UserHandshake {
-        let a = generate_private_key_a::<LEN>();
+        let a = generate_private_key_a(KEYLEN);
         debug!("a = {:?}", &a);
 
         let A = calculate_pubkey_A(&constants.module, &constants.generator, &a);
@@ -60,31 +63,33 @@ impl<const LEN: usize> Srp6User<LEN> {
     pub fn update_handshake(
         &mut self,
         server_handshake: &ServerHandshake,
-        constants: &OpenConstants<LEN>,
+        constants: &OpenConstants<KEYLEN>,
         I: UsernameRef,
         p: &ClearTextPassword,
     ) -> Result<Proof> {
-        if server_handshake.server_publickey.num_bytes() > LEN {
+        if server_handshake.server_publickey.num_effective_bytes() > KEYLEN {
             return Err(Srp6Error::KeyLengthMismatch {
-                given: server_handshake.server_publickey.num_bytes(),
-                expected: LEN,
+                given: server_handshake.server_publickey.num_effective_bytes(),
+                expected: KEYLEN,
             });
         }
         self.B = server_handshake.server_publickey.clone();
         self.salt = server_handshake.salt.clone();
 
-        self.U = calculate_u::<LEN>(&self.A, &self.B);
-        let x = calculate_private_key_x(I, p, &self.salt);
-        self.S = calculate_session_key_S_for_client::<LEN>(
-            &constants.module,
+        self.U = SerUint::new(calculate_u::<KEYLEN>(&self.A, &self.B));
+        let x = calculate_private_key_x::<KEYLEN>(I, p, &self.salt);
+
+        let monty_N = Arc::new(BoxedMontyParams::new(constants.module.clone()));
+        self.S = calculate_session_key_S_for_client::<KEYLEN>(
+            Arc::clone(&monty_N),
             &constants.generator,
             &self.B,
             &self.A,
             &self.a,
             &x,
         )?;
-        self.K = calculate_session_key_hash_interleave_K::<LEN>(&self.S);
-        self.M = calculate_proof_M::<LEN>(
+        self.K = calculate_session_key_hash_interleave_K::<KEYLEN>(&self.S);
+        self.M = calculate_proof_M::<KEYLEN>(
             &constants.module,
             &constants.generator,
             I,
@@ -97,7 +102,7 @@ impl<const LEN: usize> Srp6User<LEN> {
     }
 
     pub fn verify_proof(self, servers_proof: &Proof) -> Option<PrivateKey> {
-        let my_strong_proof = calculate_strong_proof_M2::<LEN>(&self.A, &self.M, &self.K);
+        let my_strong_proof = calculate_strong_proof_M2::<KEYLEN>(&self.A, &self.M, &self.K);
         if servers_proof == &my_strong_proof {
             Some(self.S)
         } else {

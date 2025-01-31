@@ -156,12 +156,12 @@ mod tests {
         let constants = OpenConstants::default();
         // new user : those are sent to the server and stored there
         let user_details = Srp6User1024::generate_new_user_secrets(username, password, &constants);
-        let official_verifier = PublicKey::from_bytes_be(&testdata::VERIFIER);
+        let official_verifier = PublicKey::from_be_bytes(&testdata::VERIFIER, 1024);
         assert_eq!(official_verifier, user_details.verifier, "verifier nok");
         // user creates a handshake
         let mut srp6_user = Srp6User1024::default();
         let user_handshake = srp6_user.start_handshake(username, &constants);
-        let official_user_publickey = PublicKey::from_bytes_be(&testdata::A_PUBLIC);
+        let official_user_publickey = PublicKey::from_be_bytes(&testdata::A_PUBLIC, 1024);
         assert_eq!(
             official_user_publickey, user_handshake.user_publickey,
             "A nok"
@@ -171,7 +171,7 @@ mod tests {
         let server_handshake = srp6
             .continue_handshake(&user_details, &user_handshake.user_publickey, &constants)
             .unwrap();
-        let official_server_publickey = PublicKey::from_bytes_be(&testdata::B_PUBLIC);
+        let official_server_publickey = PublicKey::from_be_bytes(&testdata::B_PUBLIC, 1024);
         assert_eq!(
             official_server_publickey, server_handshake.server_publickey,
             "B nok"
@@ -187,7 +187,7 @@ mod tests {
         // both secrets
         assert_eq!(secret2, secret, "not same secrets");
         // compare official numbers
-        let expected_secret = PrivateKey::from_bytes_be(&testdata::SECRET);
+        let expected_secret = PrivateKey::from_be_slice(&testdata::SECRET, 1024).unwrap();
         assert_eq!(expected_secret, secret, "S nok");
     }
 
@@ -227,17 +227,17 @@ mod tests {
         // server is 4096
         let server_constants = OpenConstants::default();
         let mut srp6 = Srp6_4096::default();
-        let server_handshake = srp6
+        let err = srp6
             .continue_handshake(
                 &user_details,
                 &user_handshake.user_publickey,
                 &server_constants,
             )
-            .unwrap();
-        // client will detect
-        let err = srp6_user
-            .update_handshake(&server_handshake, &user_constants, username, password)
             .unwrap_err();
-        assert!(matches!(err, Srp6Error::KeyLengthMismatch { .. }));
+        // // client will detect
+        // let err = srp6_user
+        //     .update_handshake(&server_handshake, &user_constants, username, password)
+        //     .unwrap_err();
+        assert!(matches!(err, Srp6Error::InvalidPublicKey { .. }));
     }
 }

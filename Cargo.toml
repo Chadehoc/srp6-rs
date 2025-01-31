@@ -1,7 +1,7 @@
 [package]
 name = "chadehoc-srp6"
 version = "0.0.1" # original was 1.0.0.alpha.6
-authors = ["Sven Assmann <sven.assmann.it@gmail.com>"]
+authors = ["Sven Assmann <sven.assmann.it@gmail.com>", "Chadehoc <1562517+Chadehoc@users.noreply.github.com>"]
 # original authors = ["Sven Assmann <sven.assmann.it@gmail.com>"]
 # and Github user "valpaq".
 edition = "2021"
@@ -12,16 +12,14 @@ include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 [dependencies]
 derive_more = { version = "1.0.0", features = ["error", "display"] }
 sha1 = "0.10.1"
-rand = "0.8"
-num-bigint = { version = "0.4", features = ["rand", "serde"] }
+crypto-bigint = { version = "0.6.0", features = ["rand", "alloc", "serde"]}
 num-traits = "0.2"
-hex = "0.4"
 hex-literal = "0.4.1"
 log = { version = "0.4.25", features = ["release_max_level_warn"] }
 serde = { version = "1.0.217", features = ["derive"] }
 
 [dev-dependencies]
-serde_json = "1.0.135"
+serde_json = "1.0.137"
 
 [features]
 default = []

@@ -1,0 +1,6 @@
+{
+    "editor.hover.enabled": false,
+    "editor.hover.sticky": false,
+    "rust-analyzer.hover.actions.enable": true,
+    "rust-analyzer.hover.documentation.enable": false
+}
