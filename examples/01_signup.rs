@@ -10,8 +10,7 @@ fn main() {
         user_password,
         &OpenConstants::default(),
     );
-    // assert_eq!(user_details.salt.num_effective_bytes(), 4096 / 8);
-    assert_eq!(user_details.verifier.num_effective_bytes(), 4096 / 8);
+    assert!(user_details.verifier.num.bits() <= 4096);
 
     println!("Simulating a server and signup with user {}", new_username);
     println!(" - User's username   [I] = {:?}", &user_details.username);

@@ -1,15 +1,13 @@
 // use super::user::{HandshakeProof, StrongProofVerifier};
-use crate::big_number::SerUint;
+use crate::big_number::{SerUint, num_effective_bytes};
 use crate::primitives::*;
 use crate::Result;
 use crate::Srp6Error;
 
-use crypto_bigint::modular::BoxedMontyParams;
-use log::debug;
+use crypto_bigint::modular::{BoxedMontyForm, BoxedMontyParams};
 use std::sync::Arc;
 
 /// Main interaction point for the server
-#[allow(non_snake_case)]
 #[derive(Debug, Default)]
 pub struct Srp6<const KEYLEN: usize> {
     pub A: PublicKey,
@@ -22,27 +20,31 @@ pub struct Srp6<const KEYLEN: usize> {
 }
 
 impl<const KEYLEN: usize> Srp6<KEYLEN> {
-    #[allow(non_snake_case)]
     pub fn continue_handshake(
         &mut self,
         user_details: &UserDetails,
         user_publickey: &PublicKey,
         constants: &OpenConstants<KEYLEN>,
     ) -> Result<ServerHandshake> {
-        if user_publickey.num_effective_bytes() > KEYLEN {
+        if num_effective_bytes(&user_publickey.num) > KEYLEN {
             return Err(Srp6Error::KeyLengthMismatch {
-                given: user_publickey.num_effective_bytes(),
+                given: num_effective_bytes(&user_publickey.num),
                 expected: KEYLEN,
             });
         }
+        if user_publickey.num.bits_precision() != constants.module.bits_precision() {
+            return Err(Srp6Error::KeyLengthMismatch {
+                given: user_publickey.num.bits_precision() as usize,
+                expected: constants.module.bits_precision() as usize,
+            });
+        }
         let monty_N = Arc::new(BoxedMontyParams::new(constants.module.clone()));
+        let monty_v = BoxedMontyForm::new_with_arc(user_details.verifier.num.clone(), Arc::clone(&monty_N));
         let b = generate_private_key_b(KEYLEN);
-        debug!("b = {:?}", &b);
-
         let B = calculate_pubkey_B::<KEYLEN>(
-            &constants.module,
+            Arc::clone(&monty_N),
             &constants.generator,
-            &user_details.verifier,
+            &monty_v,
             &b,
         );
 
@@ -56,7 +58,7 @@ impl<const KEYLEN: usize> Srp6<KEYLEN> {
             &self.A,
             &self.B,
             &self.b,
-            &user_details.verifier,
+            &monty_v,
         )?;
         self.K = calculate_session_key_hash_interleave_K::<KEYLEN>(&self.S);
         self.M = calculate_proof_M::<KEYLEN>(

@@ -1,28 +1,28 @@
 [package]
 name = "chadehoc-srp6"
-version = "0.0.1" # original was 1.0.0.alpha.6
-authors = ["Sven Assmann <sven.assmann.it@gmail.com>", "Chadehoc <1562517+Chadehoc@users.noreply.github.com>"]
-# original authors = ["Sven Assmann <sven.assmann.it@gmail.com>"]
-# and Github user "valpaq".
+version = "0.0.1"
+authors = [
+    "Sven Assmann <sven.assmann.it@gmail.com>",
+    "Chadehoc <1562517+Chadehoc@users.noreply.github.com>",
+    # also Github user "valpaq"
+]
 edition = "2021"
 description = "A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6 and 6a)"
 license = "MIT"
 include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
+crypto-bigint = { version = "0.6.0", features = ["rand", "alloc", "serde"] }
 derive_more = { version = "1.0.0", features = ["error", "display"] }
-sha1 = "0.10.1"
-crypto-bigint = { version = "0.6.0", features = ["rand", "alloc", "serde"]}
-num-traits = "0.2"
 hex-literal = "0.4.1"
-log = { version = "0.4.25", features = ["release_max_level_warn"] }
+num-traits = "0.2"
 serde = { version = "1.0.217", features = ["derive"] }
+sha1 = "0.10.1"
 
 [dev-dependencies]
 serde_json = "1.0.137"
 
 [features]
-default = []
 # use this in tests to remove randomness and use the test data
 # in RFC 5054 appendix B (only for 1024 version).
 norand = []

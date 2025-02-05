@@ -1,13 +1,11 @@
 // use super::host::Handshake;
-use crate::big_number::SerUint;
+use crate::big_number::{SerUint, num_effective_bytes};
 use crate::primitives::*;
 use crate::{Result, Srp6Error};
 
-use crypto_bigint::modular::BoxedMontyParams;
-use log::debug;
+use crypto_bigint::modular::{BoxedMontyForm, BoxedMontyParams};
 use std::sync::Arc;
 
-#[allow(non_snake_case)]
 #[derive(Debug, Default)]
 pub struct Srp6User<const KEYLEN: usize> {
     pub A: PublicKey,
@@ -18,11 +16,13 @@ pub struct Srp6User<const KEYLEN: usize> {
     pub M: Proof,
     S: PrivateKey,
     K: SessionKey,
+    // monty form of constants, avoids some cloning
+    monty_N: Option<Arc<BoxedMontyParams>>,
+    monty_g: Option<BoxedMontyForm>,
 }
 
 impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     /// creates a new [`Salt`] `s` and [`PasswordVerifier`] `v` for a new user
-    #[allow(non_snake_case)]
     pub fn generate_new_user_secrets(
         I: UsernameRef,
         p: &ClearTextPassword,
@@ -40,18 +40,19 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         }
     }
 
-    #[allow(non_snake_case)]
     pub fn start_handshake(
         &mut self,
         username: UsernameRef,
         constants: &OpenConstants<KEYLEN>,
     ) -> UserHandshake {
         let a = generate_private_key_a(KEYLEN);
-        debug!("a = {:?}", &a);
-
-        let A = calculate_pubkey_A(&constants.module, &constants.generator, &a);
+        let monty_N = Arc::new(BoxedMontyParams::new(constants.module.clone()));
+        let monty_g = BoxedMontyForm::new_with_arc(constants.generator.clone(), Arc::clone(&monty_N));
+        let A = calculate_pubkey_A(&monty_g, &a);
         self.a = a;
         self.A = A.clone();
+        self.monty_N = Some(monty_N);
+        self.monty_g = Some(monty_g);
 
         UserHandshake {
             username: username.to_owned(),
@@ -59,7 +60,6 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         }
     }
 
-    #[allow(non_snake_case)]
     pub fn update_handshake(
         &mut self,
         server_handshake: &ServerHandshake,
@@ -67,9 +67,9 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         I: UsernameRef,
         p: &ClearTextPassword,
     ) -> Result<Proof> {
-        if server_handshake.server_publickey.num_effective_bytes() > KEYLEN {
+        if num_effective_bytes(&server_handshake.server_publickey.num) > KEYLEN {
             return Err(Srp6Error::KeyLengthMismatch {
-                given: server_handshake.server_publickey.num_effective_bytes(),
+                given: num_effective_bytes(&server_handshake.server_publickey.num),
                 expected: KEYLEN,
             });
         }
@@ -79,10 +79,10 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         self.U = SerUint::new(calculate_u::<KEYLEN>(&self.A, &self.B));
         let x = calculate_private_key_x::<KEYLEN>(I, p, &self.salt);
 
-        let monty_N = Arc::new(BoxedMontyParams::new(constants.module.clone()));
         self.S = calculate_session_key_S_for_client::<KEYLEN>(
-            Arc::clone(&monty_N),
+            Arc::clone(self.monty_N.as_ref().expect("handshake not started")),
             &constants.generator,
+            self.monty_g.as_ref().expect("handshake not started"),
             &self.B,
             &self.A,
             &self.a,

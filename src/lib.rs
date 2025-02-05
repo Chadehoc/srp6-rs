@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 /*!
 An implementation of Secure Remote Password (SRP6) authentication protocol.
 
@@ -238,6 +240,6 @@ mod tests {
         // let err = srp6_user
         //     .update_handshake(&server_handshake, &user_constants, username, password)
         //     .unwrap_err();
-        assert!(matches!(err, Srp6Error::InvalidPublicKey { .. }));
+        assert!(matches!(err, Srp6Error::KeyLengthMismatch { .. }));
     }
 }

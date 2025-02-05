@@ -38,5 +38,5 @@ fn main() {
         assert_eq!(secret2, secret, "not same secrets");
     }
 
-    println!("Time elapsed in auth is: {:?}", durations / NLOOPS);
+    println!("Time elapsed in auth is: {:?} ({NLOOPS} loops)", durations / NLOOPS);
 }

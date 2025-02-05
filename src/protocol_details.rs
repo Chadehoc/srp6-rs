@@ -46,7 +46,7 @@ N, g, s, v = <read from password file>
 v = g^x % N
 b = random()
 k = SHA1(N | PAD(g))
-B = k*v + g^b % N
+B = (k*v + g^b) % N
 A = <read from client>
 u = SHA1(PAD(A) | PAD(B))
 S = (A * v^u) ^ b % N
@@ -77,10 +77,16 @@ The test is called `test_official_vectors_1024`.
 */
 
 /// Test values defined in RFC 5054 appendix B (for 1024 version)
-// #[allow(dead_code)]
 #[cfg(test)]
 pub mod testdata {
     use hex_literal::hex;
+    use crypto_bigint::BoxedUint;
+    use crate::big_number::needed_precision;
+
+    /// From raw data to BoxedUint
+    pub fn from_testdata(data: &impl AsRef<[u8]>) -> BoxedUint {
+        BoxedUint::from_be_slice(data.as_ref(), needed_precision(128)).unwrap()
+    }
 
     pub const USERNAME: &str = "alice";
     pub const PASSWORD: &str = "password123";

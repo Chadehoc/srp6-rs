@@ -1,22 +1,17 @@
 use crypto_bigint::{
-    modular::{BoxedMontyForm, BoxedMontyParams},
-    BoxedUint, Limb, Odd,
+    BoxedUint, Limb,
 };
 use serde::{de::Error as DeError, de::Visitor, Deserialize, Serialize};
 use std::fmt::Debug;
 
 use crypto_bigint::{rand_core::OsRng, Random, Uint};
 
-/// returns the byte vec in big endian byte order, padded by 0 for `len` bytes
-pub fn to_array_pad_zero(big: &BoxedUint, nbytes: usize) -> Vec<u8> {
-    // the initial implementation used wrongly little-indian
-    // big-endian padding is in front
-    let nb = (big.bits() as usize + 7) / 8;
-    // may happen if client and server not using same KEYLEN,
-    // better panic here, should be verified sooner
-    assert!(nb <= nbytes, "Padding to {nbytes} from {nb} bytes");
-    let offset = nbytes - nb;
-    let mut result = vec![0u8; nbytes];
+/// Returns as byte vec in big endian byte order, padded in front by 0 for `len` bytes
+pub fn to_array_pad_zero(big: &BoxedUint, len: usize) -> Vec<u8> {
+    let nb = num_effective_bytes(big);
+    assert!(nb <= len, "Padding to {len} from {nb} bytes");
+    let offset = len - nb;
+    let mut result = vec![0u8; len];
     // leading zeroes due to bits_precision
     let bytes1 = big.to_be_bytes();
     let leading_bytes = big.leading_zeros() as usize / 8;
@@ -29,6 +24,11 @@ pub fn needed_precision(nbytes: usize) -> u32 {
     (nbytes * 8) as u32 + 4 * Limb::BITS
 }
 
+pub fn num_effective_bytes(big: &BoxedUint) -> usize {
+    (big.bits() as usize + 7) / 8
+}
+
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, derive_more::Display)]
 pub struct SerUint {
     pub num: BoxedUint,
@@ -37,10 +37,6 @@ pub struct SerUint {
 impl SerUint {
     pub fn new(num: BoxedUint) -> SerUint {
         SerUint { num }
-    }
-
-    pub fn num_effective_bytes(&self) -> usize {
-        (self.num.bits() as usize + 7) / 8
     }
 
     pub fn from_be_bytes(bytes: &[u8], bits_precision: u32) -> SerUint {
@@ -99,15 +95,6 @@ impl<'de> Deserialize<'de> for SerUint {
 
         deserializer.deserialize_bytes(UintVisitor)
     }
-}
-
-/// Warning: `base` and `modulus` are cloned.
-pub fn modpow(base: &BoxedUint, exp: &BoxedUint, modulus: &BoxedUint) -> BoxedUint {
-    let monty_base = BoxedMontyForm::new(
-        base.clone(),
-        BoxedMontyParams::new(Odd::new(modulus.clone()).expect("non-odd modulus")),
-    );
-    monty_base.pow(exp).retrieve()
 }
 
 pub fn new_rand(key_len: usize) -> BoxedUint {
