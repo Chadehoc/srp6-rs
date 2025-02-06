@@ -3,7 +3,7 @@
 /*!
 An implementation of Secure Remote Password (SRP6) authentication protocol.
 
-**NOTE**: Please do only use key length >= 2048 bit in production. You can do so by using [`Srp6_2048`] or [`Srp6_4096`].
+**NOTE**: Please do only use key length >= 2048 bit in production. You can do so by using [`Srp6Host2048`] or [`Srp6Host4096`].
 
 # Usage
 See the examples.
@@ -24,7 +24,7 @@ use derive_more::{Display, Error};
 
 #[cfg(doc)]
 pub mod protocol_details;
-#[cfg(not(doc))]
+#[cfg(all(test, not(doc)))]
 mod protocol_details;
 
 pub(crate) mod primitives;
@@ -33,13 +33,13 @@ mod api;
 mod big_number;
 mod hash;
 
-pub use api::{host::*, user::*};
+pub use api::host::{Srp6Host, Srp6Host2048, Srp6Host4096};
+pub use api::user::{Srp6User, Srp6User2048, Srp6User4096};
 pub use primitives::{
     ClearTextPassword, Generator, MultiplierParameter, OpenConstants, PasswordVerifier,
     PrimeModulus, PrivateKey, Proof, PublicKey, Salt, ServerHandshake, SessionKey, StrongProof,
     StrongSessionKey, UserCredentials, UserDetails, UserHandshake, Username, UsernameRef,
 };
-pub use std::convert::TryInto;
 
 /// encapsulates a [`Srp6Error`]
 pub type Result<T> = std::result::Result<T, Srp6Error>;
@@ -70,24 +70,31 @@ mod tests {
     use crate::protocol_details::testdata;
 
     /// Test similar to the example, full handshake but no data transfer.
-    #[test]
-    fn test_handshake_quick_4096() {
+    fn test_handshake_quick<const KEYLEN: usize>()
+    where
+        OpenConstants<KEYLEN>: Default,
+    {
         let username = "Bob";
         let password: &ClearTextPassword = "secret-password";
-        let constants = OpenConstants::default();
+        let mut constants = OpenConstants::<KEYLEN>::default();
         // new user : those are sent to the server and stored there
-        let user_details = Srp6user4096::generate_new_user_secrets(username, password, &constants);
+        let mut user_details =
+            Srp6User::<KEYLEN>::generate_new_user_secrets(username, password, &constants);
         // user creates a handshake
-        let mut srp6_user = Srp6user4096::default();
-        let user_handshake = srp6_user.start_handshake(username, &constants);
+        let mut srp6_user = Srp6User::<KEYLEN>::new();
+        let user_handshake = srp6_user.start_handshake(username, &mut constants);
         // server retrieves stored details and continues the handshake
-        let mut srp6 = Srp6_4096::default();
+        let mut srp6 = Srp6Host::<KEYLEN>::new();
         let server_handshake = srp6
-            .continue_handshake(&user_details, &user_handshake.user_publickey, &constants)
+            .continue_handshake(
+                &mut user_details,
+                &user_handshake.user_publickey,
+                &mut constants,
+            )
             .unwrap();
         // client side
         let proof = srp6_user
-            .update_handshake(&server_handshake, &constants, username, password)
+            .update_handshake(&server_handshake, &mut constants, username, password)
             .unwrap();
         // server side
         let (hamk, secret) = srp6.verify_proof(&proof).unwrap();
@@ -97,51 +104,82 @@ mod tests {
         assert_eq!(secret2, secret, "not same secrets");
     }
 
-    #[allow(unused_variables)]
-    fn trace(title: &str, val: &str) {
-        #[cfg(feature = "norand")]
-        println!("{title} = {val:#}")
+    #[test]
+    fn test_handshake_quick_512() {
+        test_handshake_quick::<512>();
     }
 
-    /// Test a handshake simulating data transfer (serialize/deserialize)
+    #[test]
+    fn test_handshake_quick_256() {
+        test_handshake_quick::<256>();
+    }
+
+    #[test]
+    fn test_handshake_quick_128() {
+        test_handshake_quick::<128>();
+    }
+
+    /// Test a handshake simulating data transfer (serialize/deserialize).
+    ///
+    /// Uncomment the `println!`'s to trace exchanged data.
     #[test]
     fn test_handshake_serde_2048() {
         let username = "fred";
         let password: &ClearTextPassword = "password_fred";
-        let constants = OpenConstants::default();
+        let mut constants = OpenConstants::default();
         // new user : those are sent to the server and stored there
-        let user_details = Srp6user2048::generate_new_user_secrets(username, password, &constants);
-        let transfer = serde_json::to_string(&user_details).unwrap();
-        trace("details", &transfer);
+        let user_details_0 =
+            Srp6User2048::generate_new_user_secrets(username, password, &constants);
+        let transfer = serde_json::to_string(&user_details_0).unwrap();
+        // println!("details {transfer}");
         // server side (stores)
-        let user_details = serde_json::from_str::<UserDetails>(&transfer).unwrap();
+        let mut user_details = serde_json::from_str::<UserDetails>(&transfer).unwrap();
+        assert_eq!(user_details.salt, user_details_0.salt, "salt different");
+        assert_eq!(
+            user_details.verifier, user_details_0.verifier,
+            "verifier different"
+        );
         // user creates a handshake
-        let mut srp6_user = Srp6user2048::default();
-        let user_handshake = srp6_user.start_handshake(username, &constants);
-        let transfer = serde_json::to_string(&user_handshake).unwrap();
-        trace("user_hs", &transfer);
+        let mut srp6_user = Srp6User2048::new();
+        let user_handshake_0 = srp6_user.start_handshake(username, &mut constants);
+        let transfer = serde_json::to_string(&user_handshake_0).unwrap();
+        // println!("user_handshake {transfer}");
         // server retrieves stored details and continues the handshake
         let user_handshake = serde_json::from_str::<UserHandshake>(&transfer).unwrap();
-        let mut srp6 = Srp6_2048::default();
-        let server_handshake = srp6
-            .continue_handshake(&user_details, &user_handshake.user_publickey, &constants)
+        assert_eq!(
+            user_handshake.user_publickey.num, user_handshake_0.user_publickey.num,
+            "public A different"
+        );
+        let mut srp6 = Srp6Host2048::new();
+        let server_handshake_0 = srp6
+            .continue_handshake(
+                &mut user_details,
+                &user_handshake.user_publickey,
+                &mut constants,
+            )
             .unwrap();
-        let transfer = serde_json::to_string(&server_handshake).unwrap();
-        trace("server_hs", &transfer);
+        let transfer = serde_json::to_string(&server_handshake_0).unwrap();
+        // println!("server_handshake {transfer}");
         // client side
         let server_handshake = serde_json::from_str::<ServerHandshake>(&transfer).unwrap();
-        let proof = srp6_user
-            .update_handshake(&server_handshake, &constants, username, password)
-            .unwrap();
-        let transfer = serde_json::to_string(&proof).unwrap();
-        trace("proof", &transfer);
+        assert_eq!(
+            server_handshake.server_publickey, server_handshake_0.server_publickey,
+            "public B different"
+        );
+        let proof_0 = srp6_user
+            .update_handshake(&server_handshake, &mut constants, username, password)
+            .expect("no proof 1");
+        let transfer = serde_json::to_string(&proof_0).unwrap();
+        // println!("client_proof {transfer}");
         // server side
         let proof = serde_json::from_str::<Proof>(&transfer).unwrap();
-        let (hamk, secret) = srp6.verify_proof(&proof).unwrap();
-        let transfer = serde_json::to_string(&hamk).unwrap();
-        trace("sproof", &transfer);
+        assert_eq!(proof, proof_0, "proof different");
+        let (hamk_0, secret) = srp6.verify_proof(&proof).expect("bad proof 2");
+        let transfer = serde_json::to_string(&hamk_0).unwrap();
+        // println!("server_proof {transfer}");
         // client side
         let hamk = serde_json::from_str::<Proof>(&transfer).unwrap();
+        assert_eq!(hamk, hamk_0, "strong proof different");
         let secret2 = srp6_user.verify_proof(&hamk).expect("invalid server proof");
         // both secrets
         assert_eq!(secret2, secret, "not same secrets");
@@ -152,26 +190,31 @@ mod tests {
     #[test]
     fn test_official_vectors_1024() {
         type Srp6User1024 = Srp6User<128>;
-        type Srp61024 = Srp6<128>;
+        type Srp61024 = Srp6Host<128>;
         let username = testdata::USERNAME;
         let password: &ClearTextPassword = testdata::PASSWORD;
-        let constants = OpenConstants::default();
+        let mut constants = OpenConstants::default();
         // new user : those are sent to the server and stored there
-        let user_details = Srp6User1024::generate_new_user_secrets(username, password, &constants);
+        let mut user_details =
+            Srp6User1024::generate_new_user_secrets(username, password, &constants);
         let official_verifier = PublicKey::from_be_bytes(&testdata::VERIFIER, 1024);
         assert_eq!(official_verifier, user_details.verifier, "verifier nok");
         // user creates a handshake
-        let mut srp6_user = Srp6User1024::default();
-        let user_handshake = srp6_user.start_handshake(username, &constants);
+        let mut srp6_user = Srp6User1024::new();
+        let user_handshake = srp6_user.start_handshake(username, &mut constants);
         let official_user_publickey = PublicKey::from_be_bytes(&testdata::A_PUBLIC, 1024);
         assert_eq!(
             official_user_publickey, user_handshake.user_publickey,
             "A nok"
         );
         // server retrieves stored details and continues the handshake
-        let mut srp6 = Srp61024::default();
+        let mut srp6 = Srp61024::new();
         let server_handshake = srp6
-            .continue_handshake(&user_details, &user_handshake.user_publickey, &constants)
+            .continue_handshake(
+                &mut user_details,
+                &user_handshake.user_publickey,
+                &mut constants,
+            )
             .unwrap();
         let official_server_publickey = PublicKey::from_be_bytes(&testdata::B_PUBLIC, 1024);
         assert_eq!(
@@ -180,7 +223,7 @@ mod tests {
         );
         // client side
         let proof = srp6_user
-            .update_handshake(&server_handshake, &constants, username, password)
+            .update_handshake(&server_handshake, &mut constants, username, password)
             .unwrap();
         // server side
         let (hamk, secret) = srp6.verify_proof(&proof).unwrap();
@@ -189,7 +232,7 @@ mod tests {
         // both secrets
         assert_eq!(secret2, secret, "not same secrets");
         // compare official numbers
-        let expected_secret = PrivateKey::from_be_slice(&testdata::SECRET, 1024).unwrap();
+        let expected_secret = SessionKey::from_be_slice(&testdata::SECRET, 1024).unwrap();
         assert_eq!(expected_secret, secret, "S nok");
     }
 
@@ -198,19 +241,19 @@ mod tests {
         let username = "Bob";
         let password: &ClearTextPassword = "secret-password";
         // client is 4096
-        let user_constants = OpenConstants::default();
-        let user_details =
-            Srp6user4096::generate_new_user_secrets(username, password, &user_constants);
-        let mut srp6_user = Srp6user4096::default();
-        let user_handshake = srp6_user.start_handshake(username, &user_constants);
+        let mut user_constants = OpenConstants::default();
+        let mut user_details =
+            Srp6User4096::generate_new_user_secrets(username, password, &user_constants);
+        let mut srp6_user = Srp6User4096::new();
+        let user_handshake = srp6_user.start_handshake(username, &mut user_constants);
         // server is 2048
-        let server_constants = OpenConstants::default();
-        let mut srp6 = Srp6_2048::default();
+        let mut server_constants = OpenConstants::default();
+        let mut srp6 = Srp6Host2048::new();
         let err = srp6
             .continue_handshake(
-                &user_details,
+                &mut user_details,
                 &user_handshake.user_publickey,
-                &server_constants,
+                &mut server_constants,
             )
             .unwrap_err();
         assert!(matches!(err, Srp6Error::KeyLengthMismatch { .. }));
@@ -221,19 +264,19 @@ mod tests {
         let username = "Bob";
         let password: &ClearTextPassword = "secret-password";
         // client is 2048
-        let user_constants = OpenConstants::default();
-        let user_details =
-            Srp6user2048::generate_new_user_secrets(username, password, &user_constants);
-        let mut srp6_user = Srp6user2048::default();
-        let user_handshake = srp6_user.start_handshake(username, &user_constants);
+        let mut user_constants = OpenConstants::default();
+        let mut user_details =
+            Srp6User2048::generate_new_user_secrets(username, password, &user_constants);
+        let mut srp6_user = Srp6User2048::new();
+        let user_handshake = srp6_user.start_handshake(username, &mut user_constants);
         // server is 4096
-        let server_constants = OpenConstants::default();
-        let mut srp6 = Srp6_4096::default();
+        let mut server_constants = OpenConstants::default();
+        let mut srp6 = Srp6Host4096::new();
         let err = srp6
             .continue_handshake(
-                &user_details,
+                &mut user_details,
                 &user_handshake.user_publickey,
-                &server_constants,
+                &mut server_constants,
             )
             .unwrap_err();
         // // client will detect

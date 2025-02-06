@@ -76,16 +76,35 @@ The test is called `test_official_vectors_1024`.
 - [vetted N](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
 */
 
-/// Test values defined in RFC 5054 appendix B (for 1024 version)
+/// Test values defined in RFC 5054 appendix B.
+///
+/// [RFC5054 Appendix B](https://datatracker.ietf.org/doc/html/rfc5054#appendix-B)
+/// This is for 1024 bits version (128 bytes).
 #[cfg(test)]
 pub mod testdata {
-    use hex_literal::hex;
+    use crate::big_number::np::*;
     use crypto_bigint::BoxedUint;
-    use crate::big_number::needed_precision;
+    use hex_literal::hex;
 
     /// From raw data to BoxedUint
+    pub fn from_data<const KEYLEN: usize>(data: &impl AsRef<[u8]>) -> BoxedUint {
+        BoxedUint::from_be_slice(data.as_ref(), needed_precision::<KEYLEN>()).unwrap()
+    }
+
+    pub fn from_data_pk<const KEYLEN: usize>(data: &impl AsRef<[u8]>) -> BoxedUint {
+        BoxedUint::from_be_slice(data.as_ref(), needed_precision_pk::<KEYLEN>()).unwrap()
+    }
+
+    pub fn from_data_hash(data: &impl AsRef<[u8]>) -> BoxedUint {
+        BoxedUint::from_be_slice(data.as_ref(), 160).unwrap()
+    }
+
     pub fn from_testdata(data: &impl AsRef<[u8]>) -> BoxedUint {
-        BoxedUint::from_be_slice(data.as_ref(), needed_precision(128)).unwrap()
+        from_data::<128>(data)
+    }
+
+    pub fn from_testdata_pk(data: &impl AsRef<[u8]>) -> BoxedUint {
+        from_data_pk::<128>(data)
     }
 
     pub const USERNAME: &str = "alice";

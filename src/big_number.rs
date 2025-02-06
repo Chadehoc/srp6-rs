@@ -1,49 +1,87 @@
 use crypto_bigint::{
-    BoxedUint, Limb,
+    modular::{BoxedMontyForm, BoxedMontyParams},
+    BoxedUint,
 };
-use serde::{de::Error as DeError, de::Visitor, Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Serialize};
 use std::fmt::Debug;
+use std::sync::Arc;
 
 use crypto_bigint::{rand_core::OsRng, Random, Uint};
 
-/// Returns as byte vec in big endian byte order, padded in front by 0 for `len` bytes
-pub fn to_array_pad_zero(big: &BoxedUint, len: usize) -> Vec<u8> {
-    let nb = num_effective_bytes(big);
-    assert!(nb <= len, "Padding to {len} from {nb} bytes");
-    let offset = len - nb;
-    let mut result = vec![0u8; len];
-    // leading zeroes due to bits_precision
-    let bytes1 = big.to_be_bytes();
-    let leading_bytes = big.leading_zeros() as usize / 8;
-    let bytes2 = &bytes1[leading_bytes..];
-    result[offset..].clone_from_slice(bytes2);
-    result
-}
+pub mod np {
+    #[cfg(feature = "empirical")]
+    const TOLERANCE: u32 = 2 * crypto_bigint::Limb::BITS;
+    #[cfg(not(feature = "empirical"))]
+    const TOLERANCE: u32 = 0;
 
-pub fn needed_precision(nbytes: usize) -> u32 {
-    (nbytes * 8) as u32 + 4 * Limb::BITS
+    pub const fn needed_precision<const NBYTES: usize>() -> u32 {
+        (NBYTES * 8) as u32 * 2 - TOLERANCE
+    }
+
+    pub const fn needed_precision_pk<const NBYTES: usize>() -> u32 {
+        (NBYTES * 2) as u32 * 2 - TOLERANCE
+    }
 }
 
 pub fn num_effective_bytes(big: &BoxedUint) -> usize {
-    (big.bits() as usize + 7) / 8
+    (big.bits() as usize).div_ceil(8)
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, derive_more::Display)]
+#[display("{}", num)]
+pub struct PrivUint {
+    pub num: BoxedUint,
+    pub monty: Option<BoxedMontyForm>,
+}
+
+impl PrivUint {
+    pub fn new(num: BoxedUint) -> PrivUint {
+        PrivUint { num, monty: None }
+    }
+
+    pub fn from_be_bytes(bytes: &[u8], bits_precision: u32) -> PrivUint {
+        PrivUint::new(
+            BoxedUint::from_be_slice(bytes, bits_precision).expect("précision exacte attendue"),
+        )
+    }
+
+    pub fn get_monty<const KEYLEN: usize>(&mut self, n: &Arc<BoxedMontyParams>) -> &BoxedMontyForm {
+        if self.monty.is_none() {
+            self.monty = Some(BoxedMontyForm::new_with_arc(
+                self.num.widen(np::needed_precision::<KEYLEN>()),
+                Arc::clone(n),
+            ));
+        }
+        self.monty.as_ref().unwrap()
+    }
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, derive_more::Display)]
+#[display("{}", num)]
 pub struct SerUint {
     pub num: BoxedUint,
+    pub monty: Option<BoxedMontyForm>,
 }
 
 impl SerUint {
     pub fn new(num: BoxedUint) -> SerUint {
-        SerUint { num }
+        SerUint { num, monty: None }
     }
 
     pub fn from_be_bytes(bytes: &[u8], bits_precision: u32) -> SerUint {
-        SerUint {
-            num: BoxedUint::from_be_slice(bytes, bits_precision)
-                .expect("précision exacte attendue"),
+        SerUint::new(
+            BoxedUint::from_be_slice(bytes, bits_precision).expect("précision exacte attendue"),
+        )
+    }
+
+    pub fn get_monty<const KEYLEN: usize>(&mut self, n: &Arc<BoxedMontyParams>) -> &BoxedMontyForm {
+        if self.monty.is_none() {
+            self.monty = Some(BoxedMontyForm::new_with_arc(
+                self.num.widen(np::needed_precision::<KEYLEN>()),
+                Arc::clone(n),
+            ));
         }
+        self.monty.as_ref().unwrap()
     }
 }
 
@@ -52,7 +90,10 @@ impl Serialize for SerUint {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_bytes(self.num.to_be_bytes().as_ref())
+        let prec = self.num.bits_precision().to_be_bytes();
+        let data = self.num.to_be_bytes();
+        let total = [prec.as_slice(), data.as_ref()].concat();
+        serializer.serialize_bytes(&total)
     }
 }
 
@@ -70,26 +111,22 @@ impl<'de> Deserialize<'de> for SerUint {
                 formatter.write_str("a byte array")
             }
 
-            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
-            where
-                E: DeError,
-            {
-                let num = BoxedUint::from_be_slice(v, (v.len() * 8) as u32)
-                    .expect("the size is ok by construction");
-                Ok(SerUint { num })
-            }
-
             fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
             where
                 A: serde::de::SeqAccess<'de>,
             {
+                let mut tmp = [0u8; 4];
+                for digit in tmp.iter_mut() {
+                    *digit = seq.next_element()?.expect("prec not encoded");
+                }
+                let prec = u32::from_be_bytes(tmp);
                 let mut data = Vec::new();
                 while let Some(value) = seq.next_element()? {
                     data.push(value);
                 }
-                let num = BoxedUint::from_be_slice(&data, (data.len() * 8) as u32)
-                    .expect("the size is ok by construction");
-                Ok(SerUint { num })
+                let num =
+                    BoxedUint::from_be_slice(&data, prec).expect("the size is ok by construction");
+                Ok(SerUint::new(num))
             }
         }
 
@@ -129,15 +166,6 @@ mod tests {
     }
 
     #[test]
-    fn should_pad_0() {
-        let x = SerUint::new(BoxedUint::from_be_slice(&[0x11, 0xcd], 16).unwrap());
-        assert_eq!(
-            to_array_pad_zero(&x.num, 9),
-            [0, 0, 0, 0, 0, 0, 0, 0x11, 0xcd_u8]
-        );
-    }
-
-    #[test]
     fn test_into_string_and_display() {
         let x = BoxedUint::from_be_hex(
             "3E9D557B7899AC2A8DEC8D0046FB310A42A233BD1DF0244B574AB946A22A4A18",
@@ -152,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn test_serde() {
+    fn test_serde_json() {
         for prec in [64u32, 128u32, 256u32] {
             let x =
                 SerUint::new(BoxedUint::from_be_slice(&hex!("01020304 05060700"), prec).unwrap());

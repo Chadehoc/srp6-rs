@@ -1,27 +1,34 @@
 // use super::host::Handshake;
-use crate::big_number::{SerUint, num_effective_bytes};
+use crate::big_number::num_effective_bytes;
 use crate::primitives::*;
 use crate::{Result, Srp6Error};
 
-use crypto_bigint::modular::{BoxedMontyForm, BoxedMontyParams};
+use crypto_bigint::modular::BoxedMontyParams;
 use std::sync::Arc;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Srp6User<const KEYLEN: usize> {
     pub A: PublicKey,
-    pub B: PublicKey,
     a: PrivateKey,
-    pub U: PublicKey,
-    pub salt: Salt,
     pub M: Proof,
-    S: PrivateKey,
-    K: SessionKey,
-    // monty form of constants, avoids some cloning
+    S: SessionKey,
+    K: StrongSessionKey,
+    /// Known once session started
     monty_N: Option<Arc<BoxedMontyParams>>,
-    monty_g: Option<BoxedMontyForm>,
 }
 
 impl<const KEYLEN: usize> Srp6User<KEYLEN> {
+    pub fn new() -> Srp6User<KEYLEN> {
+        Srp6User {
+            A: Default::default(),
+            a: Default::default(),
+            M: Default::default(),
+            S: Default::default(),
+            K: [0u8; STRONG_SESSION_KEY_LENGTH],
+            monty_N: None,
+        }
+    }
+
     /// creates a new [`Salt`] `s` and [`PasswordVerifier`] `v` for a new user
     pub fn generate_new_user_secrets(
         I: UsernameRef,
@@ -43,16 +50,14 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     pub fn start_handshake(
         &mut self,
         username: UsernameRef,
-        constants: &OpenConstants<KEYLEN>,
+        constants: &mut OpenConstants<KEYLEN>,
     ) -> UserHandshake {
-        let a = generate_private_key_a(KEYLEN);
+        let a = generate_private_key_a::<KEYLEN>();
         let monty_N = Arc::new(BoxedMontyParams::new(constants.module.clone()));
-        let monty_g = BoxedMontyForm::new_with_arc(constants.generator.clone(), Arc::clone(&monty_N));
-        let A = calculate_pubkey_A(&monty_g, &a);
+        let A = calculate_pubkey_A::<KEYLEN>(&mut constants.generator, &a, &monty_N);
         self.a = a;
         self.A = A.clone();
         self.monty_N = Some(monty_N);
-        self.monty_g = Some(monty_g);
 
         UserHandshake {
             username: username.to_owned(),
@@ -63,7 +68,7 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     pub fn update_handshake(
         &mut self,
         server_handshake: &ServerHandshake,
-        constants: &OpenConstants<KEYLEN>,
+        constants: &mut OpenConstants<KEYLEN>,
         I: UsernameRef,
         p: &ClearTextPassword,
     ) -> Result<Proof> {
@@ -73,35 +78,34 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
                 expected: KEYLEN,
             });
         }
-        self.B = server_handshake.server_publickey.clone();
-        self.salt = server_handshake.salt.clone();
+        // this clone could be avoided, but at the price of a &mut server_handshake
+        // which would make the API heavier
+        let mut B = server_handshake.server_publickey.clone();
 
-        self.U = SerUint::new(calculate_u::<KEYLEN>(&self.A, &self.B));
-        let x = calculate_private_key_x::<KEYLEN>(I, p, &self.salt);
+        let mut x = calculate_private_key_x::<KEYLEN>(I, p, &server_handshake.salt);
 
         self.S = calculate_session_key_S_for_client::<KEYLEN>(
-            Arc::clone(self.monty_N.as_ref().expect("handshake not started")),
-            &constants.generator,
-            self.monty_g.as_ref().expect("handshake not started"),
-            &self.B,
+            self.monty_N.as_ref().unwrap(),
+            &mut constants.generator,
+            &mut B,
             &self.A,
-            &self.a,
-            &x,
+            &mut self.a,
+            &mut x,
         )?;
         self.K = calculate_session_key_hash_interleave_K::<KEYLEN>(&self.S);
         self.M = calculate_proof_M::<KEYLEN>(
             &constants.module,
             &constants.generator,
             I,
-            &self.salt,
+            &server_handshake.salt,
             &self.A,
-            &self.B,
+            &B,
             &self.K,
         );
-        Ok(self.M.clone())
+        Ok(self.M)
     }
 
-    pub fn verify_proof(self, servers_proof: &Proof) -> Option<PrivateKey> {
+    pub fn verify_proof(self, servers_proof: &StrongProof) -> Option<SessionKey> {
         let my_strong_proof = calculate_strong_proof_M2::<KEYLEN>(&self.A, &self.M, &self.K);
         if servers_proof == &my_strong_proof {
             Some(self.S)
@@ -111,5 +115,13 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     }
 }
 
-pub type Srp6user4096 = Srp6User<512>;
-pub type Srp6user2048 = Srp6User<256>;
+impl<const KEYLEN: usize> Default for Srp6User<KEYLEN> {
+    fn default() -> Self {
+        Srp6User::new()
+    }
+}
+
+/// Client-side, 4096 bits (512 bytes).
+pub type Srp6User4096 = Srp6User<512>;
+/// Client-side, 2048 bits (256 bytes).
+pub type Srp6User2048 = Srp6User<256>;

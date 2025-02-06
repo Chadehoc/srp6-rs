@@ -22,13 +22,13 @@ use crypto_bigint::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::big_number::{needed_precision, new_rand, to_array_pad_zero, SerUint};
-use crate::hash::{from_hash, hash, Digest, Hash, HashFunc, Update, HASH_LENGTH};
+use crate::big_number::{new_rand, np::*, PrivUint, SerUint};
+use crate::hash::{from_hash, to_array_pad_zero, Digest, Hash, HashFunc, Update, HASH_LENGTH};
 #[cfg(all(test, feature = "norand"))]
 use crate::protocol_details::testdata;
 use crate::{Result, Srp6Error};
 
-const STRONG_SESSION_KEY_LENGTH: usize = HASH_LENGTH * 2;
+pub const STRONG_SESSION_KEY_LENGTH: usize = HASH_LENGTH * 2;
 
 /// Refers to a large safe prime called `N` (`N = 2q+1`, where `q` is prime)
 #[doc(alias = "N")]
@@ -36,7 +36,7 @@ pub type PrimeModulus = Odd<BoxedUint>;
 
 /// Refers to the modulus generator `g`
 #[doc(alias = "g")]
-pub type Generator = BoxedUint;
+pub type Generator = PrivUint;
 
 /// Refers to a User's salt called `s`
 #[doc(alias = "s")]
@@ -48,7 +48,7 @@ pub type PublicKey = SerUint;
 
 /// Refers to a private secret random number a (user), b (server)
 #[doc(alias("a", "b"))]
-pub type PrivateKey = BoxedUint;
+pub type PrivateKey = PrivUint;
 
 /// Password Verifier is the users secret on the server side
 #[doc(alias = "v")]
@@ -56,21 +56,21 @@ pub type PasswordVerifier = SerUint;
 
 /// Refers to a multiplier parameter `k` (k = H(N, g) in SRP-6a, k = 3 for legacy SRP-6)
 #[doc(alias = "k")]
-pub type MultiplierParameter = BoxedUint;
+pub type MultiplierParameter = PrivUint;
 
 /// Refers to the SessionKey `S`
 #[doc(alias = "S")]
 pub type SessionKey = BoxedUint;
 /// Refers to the StrongSessionKey `K`
 #[doc(alias = "K")]
-pub type StrongSessionKey = BoxedUint;
+pub type StrongSessionKey = [u8; STRONG_SESSION_KEY_LENGTH];
 
 /// Refers to `M` and `M1` Proof of server and client
 #[doc(alias("M", "M1"))]
-pub type Proof = SerUint;
+pub type Proof = [u8; HASH_LENGTH];
 /// Refers to `M2` the hash of Proof
 #[doc(alias = "M2")]
-pub type StrongProof = SerUint;
+pub type StrongProof = [u8; HASH_LENGTH];
 
 /// Username `I` as [`String`]
 #[doc(alias = "I")]
@@ -121,11 +121,11 @@ pub struct OpenConstants<const LEN: usize> {
 /// u = H(A, B)
 /// S = (Av^u) ^ b
 pub(crate) fn calculate_session_key_S_for_host<const KEYLEN: usize>(
-    monty_N: Arc<BoxedMontyParams>, // N: &PrimeModulus,
-    A: &PublicKey,
+    monty_N: &Arc<BoxedMontyParams>, // N: &PrimeModulus,
+    A: &mut PublicKey,
     B: &PublicKey,
     b: &PrivateKey,
-    monty_v: &BoxedMontyForm,
+    v: &mut PasswordVerifier,
 ) -> Result<SessionKey> {
     // A comes from the client
     // If server and client do not use the same key_len,
@@ -137,10 +137,11 @@ pub(crate) fn calculate_session_key_S_for_host<const KEYLEN: usize>(
     if bool::from((&A.num % monty_N.modulus().as_nz_ref()).is_zero()) {
         return Err(Srp6Error::InvalidPublicKey(A.clone()));
     }
-    let u = &calculate_u::<KEYLEN>(A, B);
-    let monty_A = BoxedMontyForm::new_with_arc(A.num.clone(), monty_N);
+    let u = calculate_u::<KEYLEN>(A, B);
+    let monty_A = A.get_monty::<KEYLEN>(monty_N);
+    let monty_v = v.get_monty::<KEYLEN>(monty_N);
     let base = monty_A * monty_v.pow(&u);
-    let S = base.pow(&b).retrieve();
+    let S = base.pow(&b.num).retrieve();
     Ok(S)
 }
 
@@ -153,25 +154,31 @@ pub(crate) fn calculate_session_key_S_for_host<const KEYLEN: usize>(
 ///   - `S = (B - (k * v)) ^ (a + (u * x)) % N`
 #[allow(clippy::many_single_char_names)]
 pub(crate) fn calculate_session_key_S_for_client<const KEYLEN: usize>(
-    monty_N: Arc<BoxedMontyParams>,
-    g: &Generator,
-    monty_g: &BoxedMontyForm,
-    B: &PublicKey,
+    monty_N: &Arc<BoxedMontyParams>,
+    g: &mut Generator,
+    B: &mut PublicKey,
     A: &PublicKey,
-    a: &PrivateKey,
-    x: &PrivateKey,
+    a: &mut PrivateKey,
+    x: &mut PrivateKey,
 ) -> Result<SessionKey> {
     // safeguard B % N == 0
     if bool::from((&B.num % monty_N.modulus().as_nz_ref()).is_zero()) {
         return Err(Srp6Error::InvalidPublicKey(B.clone()));
     }
-    let u = &calculate_u::<KEYLEN>(A, B);
-    let exp = a + &(u * x);
-    let g_mod_x = &monty_g.pow(x);
-    let k = calculate_k::<KEYLEN>(monty_N.modulus(), g);
-    let monty_k = BoxedMontyForm::new_with_arc(k, Arc::clone(&monty_N));
+    // dbg!(&x.num.bits_precision());
+    let u = calculate_u::<KEYLEN>(A, B);
+    // dbg!(u.bits_precision());
+    let ux = u * &x.num;
+    // dbg!(ux.bits_precision());
+    // dbg!(needed_precision_pk::<KEYLEN>());
+    let ux = ux.widen(needed_precision_pk::<KEYLEN>());
+    let exp = &a.num + ux;
+    let monty_g = g.get_monty::<KEYLEN>(monty_N);
+    let g_mod_x = &monty_g.pow(&x.num);
+    let mut k = calculate_k::<KEYLEN>(monty_N.modulus(), g);
+    let monty_k = k.get_monty::<KEYLEN>(monty_N);
     let to_sub = monty_k * g_mod_x;
-    let monty_B = BoxedMontyForm::new_with_arc(B.num.clone(), monty_N);
+    let monty_B = B.get_monty::<KEYLEN>(monty_N);
     let base = monty_B - &to_sub;
     let S = base.pow(&exp).retrieve();
     Ok(S)
@@ -198,13 +205,16 @@ pub(crate) fn calculate_session_key_hash_interleave_K<const KEYLEN: usize>(
     }
     // hash the odd portion of S
     let odd_half_of_S_hash = HashFunc::new().chain(&half).finalize();
-    let mut vK: Vec<u8> = Vec::with_capacity(STRONG_SESSION_KEY_LENGTH);
-    for h_Si in even_half_of_S_hash.iter().zip(odd_half_of_S_hash.iter()) {
-        vK.push(*h_Si.0);
-        vK.push(*h_Si.1);
+    // interleave
+    let mut K: StrongSessionKey = [0u8; STRONG_SESSION_KEY_LENGTH];
+    for (i, h_Si) in even_half_of_S_hash
+        .iter()
+        .zip(odd_half_of_S_hash.iter())
+        .enumerate()
+    {
+        K[2 * i] = *h_Si.0;
+        K[2 * i + 1] = *h_Si.1;
     }
-    let K = BoxedUint::from_le_slice(vK.as_ref(), needed_precision(STRONG_SESSION_KEY_LENGTH))
-        .expect("précision non respectée");
     K
 }
 
@@ -222,14 +232,12 @@ pub(crate) fn calculate_proof_M<const KEYLEN: usize>(
     let digest = HashFunc::new()
         .chain(xor_hash)
         .chain(username_hash)
-        .chain(&s)
+        .chain(s)
         .chain(to_array_pad_zero(&A.num, KEYLEN))
         .chain(to_array_pad_zero(&B.num, KEYLEN))
-        .chain(to_array_pad_zero(&K, STRONG_SESSION_KEY_LENGTH))
+        .chain(K)
         .finalize();
-
-    let M: Proof = SerUint::from_be_bytes(&digest, needed_precision(HASH_LENGTH));
-    M
+    digest.into()
 }
 
 /// todo(verify): check if padding is needed or not
@@ -241,11 +249,10 @@ pub(crate) fn calculate_strong_proof_M2<const KEYLEN: usize>(
 ) -> StrongProof {
     let digest = HashFunc::new()
         .chain(to_array_pad_zero(&A.num, KEYLEN))
-        .chain(to_array_pad_zero(&M.num, HASH_LENGTH))
-        .chain(to_array_pad_zero(&K, STRONG_SESSION_KEY_LENGTH))
+        .chain(M)
+        .chain(K)
         .finalize();
-    let M2: StrongProof = SerUint::from_be_bytes(&digest, needed_precision(HASH_LENGTH));
-    M2
+    digest.into()
 }
 
 /// here we hash g and xor it with the hash of N
@@ -259,7 +266,7 @@ fn calculate_hash_N_xor_g<const KEYLEN: usize>(N: &PrimeModulus, g: &Generator) 
     let mut h = HashFunc::new()
         .chain(to_array_pad_zero(N, KEYLEN))
         .finalize();
-    let h_g = HashFunc::new().chain(g.to_be_bytes()).finalize();
+    let h_g = HashFunc::new().chain(g.num.to_be_bytes()).finalize();
     for (i, v) in h.iter_mut().enumerate() {
         *v ^= h_g[i];
     }
@@ -279,45 +286,47 @@ pub(crate) fn calculate_password_verifier_v(
     g: &Generator,
     x: &PrivateKey,
 ) -> PasswordVerifier {
-    let monty_g = BoxedMontyForm::new(
-        g.clone(),
-        BoxedMontyParams::new(N.clone()),
-    );
-    let v = monty_g.pow(x).retrieve();
+    let monty_g = BoxedMontyForm::new(g.num.clone(), BoxedMontyParams::new(N.clone()));
+    let v = monty_g.pow(&x.num).retrieve();
     SerUint::new(v)
-
 }
 
 /// `u` is the hash of host's and client's [`PublicKey`]
 /// formula: `H(PAD(A) | PAD(B))`
 pub(crate) fn calculate_u<const KEYLEN: usize>(A: &PublicKey, B: &PublicKey) -> BoxedUint {
-    let u = hash(&A.num, &B.num, KEYLEN);
-    u
+    let digest = HashFunc::new()
+        .chain(to_array_pad_zero(&A.num, KEYLEN))
+        .chain(to_array_pad_zero(&B.num, KEYLEN))
+        .finalize();
+    from_hash(&digest) // u
 }
 
 /// `A` is the [`PublicKey`] of the client
 /// formula: `A = g^a % N`
-pub(crate) fn calculate_pubkey_A(monty_g: &BoxedMontyForm, a: &PrivateKey) -> PublicKey {
-    let A = monty_g.pow(a).retrieve();
+pub(crate) fn calculate_pubkey_A<const KEYLEN: usize>(
+    g: &mut Generator,
+    a: &PrivateKey,
+    monty_N: &Arc<BoxedMontyParams>,
+) -> PublicKey {
+    let monty_g = g.get_monty::<KEYLEN>(monty_N);
+    let A = monty_g.pow(&a.num).retrieve();
     SerUint::new(A)
 }
 
 /// [`PublicKey`][B] is the hosts public key
 /// `B = kv + g^b`
 pub(crate) fn calculate_pubkey_B<const KEYLEN: usize>(
-    monty_N: Arc<BoxedMontyParams>,
-    g: &Generator,
-    v: &BoxedMontyForm,
+    monty_N: &Arc<BoxedMontyParams>,
+    g: &mut Generator,
+    v: &mut PasswordVerifier,
     b: &PrivateKey,
 ) -> PublicKey {
-    let k = calculate_k::<KEYLEN>(&monty_N.modulus(), g);
-    let monty_k = BoxedMontyForm::new_with_arc(k, Arc::clone(&monty_N));
-    let B1 = v * monty_k;
-    let monty_g = BoxedMontyForm::new_with_arc(
-        g.clone(),
-        Arc::clone(&monty_N),
-    );
-    let g_mod_N = monty_g.pow(b);
+    let mut k = calculate_k::<KEYLEN>(monty_N.modulus(), g);
+    let monty_k = k.get_monty::<KEYLEN>(monty_N);
+    let monty_v = v.get_monty::<KEYLEN>(monty_N);
+    let B1 = monty_v * monty_k;
+    let monty_g = g.get_monty::<KEYLEN>(monty_N);
+    let g_mod_N = monty_g.pow(&b.num);
     let monty_b2 = B1 + g_mod_N;
     let B = monty_b2.retrieve();
     SerUint::new(B)
@@ -338,7 +347,7 @@ pub(crate) fn calculate_private_key_x<const KEYLEN: usize>(
 ) -> PrivateKey {
     let ph = calculate_p_hash(I, p);
     let digest = HashFunc::new().chain(s).chain(ph).finalize();
-    let x: PrivateKey = from_hash::<KEYLEN>(&digest);
+    let x: PrivateKey = PrivateKey::new(from_hash(&digest));
     x
 }
 
@@ -359,28 +368,26 @@ pub(crate) fn calculate_k<const KEYLEN: usize>(
 ) -> MultiplierParameter {
     let digest = HashFunc::new()
         .chain(to_array_pad_zero(N, KEYLEN))
-        .chain(to_array_pad_zero(g, KEYLEN))
+        .chain(to_array_pad_zero(&g.num, KEYLEN))
         .finalize();
-    from_hash::<KEYLEN>(&digest)
+    MultiplierParameter::new(from_hash(&digest))
 }
 
 /// [`PrivateKey`] `a` or `b` is in fact just a big (positive) random number
-pub(crate) fn generate_private_key_a(key_len: usize) -> PrivateKey {
+pub(crate) fn generate_private_key_a<const KEYLEN: usize>() -> PrivateKey {
     #[cfg_attr(feature = "norand", allow(unused_variables))]
-    let res = new_rand(key_len);
+    let res = PrivateKey::new(new_rand(KEYLEN));
     #[cfg(all(test, feature = "norand"))]
-    let res = PrivateKey::from_be_slice(&testdata::A_PRIVATE, needed_precision(key_len))
-        .expect("A_PRIVATE utilisé avec mauvaise taille");
+    let res = PrivateKey::from_be_bytes(&testdata::A_PRIVATE, needed_precision::<KEYLEN>());
     res
 }
 
 /// [`PrivateKey`] `a` or `b` is in fact just a big (positive) random number
-pub(crate) fn generate_private_key_b(key_len: usize) -> PrivateKey {
+pub(crate) fn generate_private_key_b<const KEYLEN: usize>() -> PrivateKey {
     #[cfg_attr(feature = "norand", allow(unused_variables))]
-    let res = new_rand(key_len);
+    let res = PrivateKey::new(new_rand(KEYLEN));
     #[cfg(all(test, feature = "norand"))]
-    let res = PrivateKey::from_be_slice(&testdata::B_PRIVATE, needed_precision(key_len))
-        .expect("B_PRIVATE utilisé avec mauvaise taille");
+    let res = PrivateKey::from_be_bytes(&testdata::B_PRIVATE, needed_precision_pk::<KEYLEN>());
     res
 }
 
@@ -396,22 +403,34 @@ pub(crate) fn generate_salt(key_len: usize) -> Salt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{protocol_details::testdata::{self, from_testdata}, OpenConstants};
+    use crate::{
+        protocol_details::testdata::{self, *},
+        OpenConstants,
+    };
+
+    #[test]
+    fn test_calculate_u() {
+        let public_a = from_testdata(&testdata::A_PUBLIC);
+        let public_b = from_testdata(&testdata::B_PUBLIC);
+        let u = from_data_hash(&testdata::U);
+        let calc_u = calculate_u::<128>(&SerUint::new(public_a), &SerUint::new(public_b));
+        assert_eq!(calc_u, u);
+    }
 
     #[test]
     fn test_private_x() {
         let salt = &testdata::SALT.to_vec();
-        let x = from_testdata(&testdata::X);
+        let x = from_data_hash(&testdata::X);
         let x_calc =
             calculate_private_key_x::<128>(&testdata::USERNAME, &testdata::PASSWORD, &salt);
-        assert!(x_calc == x);
+        assert!(x_calc.num == x);
     }
 
     #[test]
     fn test_verifier_v() {
         let cst = OpenConstants::<128>::default();
         let verifier = from_testdata(&testdata::VERIFIER);
-        let x = &from_testdata(&testdata::X);
+        let x = PrivateKey::new(from_data_hash(&testdata::X));
         let v_calc = calculate_password_verifier_v(&cst.module, &cst.generator, &x);
         assert!(v_calc.num == verifier);
     }
@@ -419,55 +438,48 @@ mod tests {
     #[test]
     fn test_multiplier_k() {
         let cst = OpenConstants::<128>::default();
-        let k = from_testdata(&testdata::K_MULTIPLIER);
+        let k = MultiplierParameter::new(from_data_hash(&testdata::K_MULTIPLIER));
         let k_calc = calculate_k::<128>(&cst.module, &cst.generator);
         assert_eq!(k_calc, k);
     }
 
     #[test]
     fn test_calculate_pubkey_a() {
-        let cst = OpenConstants::<128>::default();
-        let private_a = from_testdata(&testdata::A_PRIVATE);
+        let mut cst = OpenConstants::<128>::default();
+        let private_a = PrivateKey::new(from_testdata_pk(&testdata::A_PRIVATE));
         let public_a = from_testdata(&testdata::A_PUBLIC);
         let monty_n = Arc::new(BoxedMontyParams::new(cst.module.clone()));
-        let monty_g = BoxedMontyForm::new_with_arc(cst.generator.clone(), Arc::clone(&monty_n));
-        let a_calc = calculate_pubkey_A(&monty_g, &private_a);
+        let a_calc = calculate_pubkey_A::<128>(&mut cst.generator, &private_a, &monty_n);
         assert_eq!(a_calc.num, public_a);
     }
 
     #[test]
     fn test_calculate_pubkey_b() {
-        let cst = OpenConstants::<128>::default();
-        let verifier = from_testdata(&testdata::VERIFIER);
-        let private_b = from_testdata(&testdata::B_PRIVATE);
+        let mut cst = OpenConstants::<128>::default();
+        let mut verifier = PasswordVerifier::new(from_testdata(&testdata::VERIFIER));
+        let mut private_b = PrivateKey::new(from_testdata_pk(&testdata::B_PRIVATE));
         let public_b = from_testdata(&testdata::B_PUBLIC);
         let monty_n = Arc::new(BoxedMontyParams::new(cst.module.clone()));
-        let monty_v = BoxedMontyForm::new_with_arc(verifier, Arc::clone(&monty_n));
-        let b_calc = calculate_pubkey_B::<128>(
-            monty_n,
-            &cst.generator,
-            &monty_v,
-            &private_b,
-        );
+        let b_calc =
+            calculate_pubkey_B::<128>(&monty_n, &mut cst.generator, &mut verifier, &mut private_b);
         assert_eq!(b_calc.num, public_b);
     }
 
     #[test]
     fn test_calculate_secret_host() {
         let cst = OpenConstants::<128>::default();
-        let verifier = from_testdata(&testdata::VERIFIER);
-        let public_a = from_testdata(&testdata::A_PUBLIC);
-        let private_b = from_testdata(&testdata::B_PRIVATE);
-        let public_b = from_testdata(&testdata::B_PUBLIC);
+        let mut verifier = PasswordVerifier::new(from_testdata(&testdata::VERIFIER));
+        let mut public_a = PublicKey::new(from_testdata(&testdata::A_PUBLIC));
+        let private_b = PrivateKey::new(from_testdata_pk(&testdata::B_PRIVATE));
+        let public_b = PublicKey::new(from_testdata(&testdata::B_PUBLIC));
         let secret = from_testdata(&testdata::SECRET);
         let monty_n = Arc::new(BoxedMontyParams::new(cst.module.clone()));
-        let monty_v = BoxedMontyForm::new_with_arc(verifier, Arc::clone(&monty_n));
         let calc_secret = calculate_session_key_S_for_host::<128>(
-            monty_n,
-            &SerUint::new(public_a),
-            &SerUint::new(public_b),
+            &monty_n,
+            &mut public_a,
+            &public_b,
             &private_b,
-            &monty_v,
+            &mut verifier,
         )
         .unwrap();
         assert_eq!(calc_secret, secret);
@@ -475,24 +487,71 @@ mod tests {
 
     #[test]
     fn test_calculate_secret_client() {
-        let cst = OpenConstants::<128>::default();
-        let public_a = from_testdata(&testdata::A_PUBLIC);
-        let private_a = from_testdata(&testdata::A_PRIVATE);
-        let public_b = from_testdata(&testdata::B_PUBLIC);
-        let x = from_testdata(&testdata::X);
+        let mut cst = OpenConstants::<128>::default();
+        let public_a = PublicKey::new(from_testdata(&testdata::A_PUBLIC));
+        let mut private_a = PrivateKey::new(from_testdata_pk(&testdata::A_PRIVATE));
+        let mut public_b = PublicKey::new(from_testdata(&testdata::B_PUBLIC));
+        let mut x = PrivateKey::new(from_data_hash(&testdata::X));
         let secret = from_testdata(&testdata::SECRET);
         let monty_n = Arc::new(BoxedMontyParams::new(cst.module.clone()));
-        let monty_g = BoxedMontyForm::new_with_arc(cst.generator.clone(), Arc::clone(&monty_n));
         let calc_secret = calculate_session_key_S_for_client::<128>(
-            monty_n,
-            &cst.generator,
-            &monty_g,
-            &SerUint::new(public_b),
-            &SerUint::new(public_a),
-            &private_a,
-            &x,
+            &monty_n,
+            &mut cst.generator,
+            &mut public_b,
+            &public_a,
+            &mut private_a,
+            &mut x,
         )
         .unwrap();
         assert_eq!(calc_secret, secret);
+    }
+
+    /// the real test is no overflow panic, not final asserts
+    fn test_needed_precision<const KEYLEN: usize>()
+    where
+        OpenConstants<KEYLEN>: Default,
+    {
+        let needed = needed_precision::<KEYLEN>();
+        println!("test prec for {KEYLEN}, needed {needed}");
+        // hard : k*v + g^b, but now in Monty form passes easily
+        let mut cst = OpenConstants::<KEYLEN>::default();
+        let monty_n = Arc::new(BoxedMontyParams::new(cst.module.clone()));
+        let mut big_ser = SerUint::new(from_data::<KEYLEN>(&vec![255u8; KEYLEN]));
+        let mut big_ser2 = SerUint::new(from_data::<KEYLEN>(&vec![255u8; KEYLEN]));
+        let mut big_ser3 = SerUint::new(from_data::<KEYLEN>(&vec![255u8; KEYLEN]));
+        let mut big_priv = PrivUint::new(from_data_pk::<KEYLEN>(&vec![255u8; KEYLEN / 4]));
+        let mut big_hash = PrivUint::new(from_data_hash(&vec![255u8; HASH_LENGTH]));
+        let b_calc =
+            calculate_pubkey_B::<KEYLEN>(&monty_n, &mut cst.generator, &mut big_ser, &big_priv);
+        assert!(b_calc.num.bits_precision() <= needed);
+        println!("b_calc passed");
+        let s_calc_client = calculate_session_key_S_for_client::<KEYLEN>(
+            &monty_n,
+            &mut cst.generator,
+            &mut big_ser,
+            &mut big_ser2,
+            &mut big_priv,
+            &mut big_hash,
+        )
+        .unwrap();
+        assert!(s_calc_client.bits_precision() <= needed);
+        println!("big client passed");
+        let s_calc_server = calculate_session_key_S_for_host::<KEYLEN>(
+            &monty_n,
+            &mut big_ser,
+            &mut big_ser2,
+            &mut big_priv,
+            &mut big_ser3,
+        )
+        .unwrap();
+        assert!(s_calc_server.bits_precision() <= needed);
+        println!("big server passed");
+    }
+
+    #[test]
+    fn test_needed_precisions() {
+        test_needed_precision::<128>();
+        test_needed_precision::<256>();
+        test_needed_precision::<512>();
     }
 }

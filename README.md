@@ -59,8 +59,6 @@ The test is called `test_official_vectors_1024`.
 ## TODO
 
 - need less clone()
-- needed_precision : randomized tests (public b = critical formula?)
-- remove french comments
 - rename big_number
 - documentation, and readme
 - bump version

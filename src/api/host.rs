@@ -1,30 +1,36 @@
 // use super::user::{HandshakeProof, StrongProofVerifier};
-use crate::big_number::{SerUint, num_effective_bytes};
+use crate::big_number::num_effective_bytes;
 use crate::primitives::*;
 use crate::Result;
 use crate::Srp6Error;
 
-use crypto_bigint::modular::{BoxedMontyForm, BoxedMontyParams};
+use crypto_bigint::modular::BoxedMontyParams;
 use std::sync::Arc;
 
 /// Main interaction point for the server
-#[derive(Debug, Default)]
-pub struct Srp6<const KEYLEN: usize> {
+#[derive(Debug)]
+pub struct Srp6Host<const KEYLEN: usize> {
     pub A: PublicKey,
-    pub B: PublicKey,
-    b: PrivateKey,
-    pub U: PublicKey,
-    S: PrivateKey,
-    K: SessionKey,
+    S: SessionKey,
     M: Proof,
+    K: StrongSessionKey,
 }
 
-impl<const KEYLEN: usize> Srp6<KEYLEN> {
+impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
+    pub fn new() -> Srp6Host<KEYLEN> {
+        Srp6Host {
+            A: Default::default(),
+            S: Default::default(),
+            M: Default::default(),
+            K: [0u8; STRONG_SESSION_KEY_LENGTH],
+        }
+    }
+
     pub fn continue_handshake(
         &mut self,
-        user_details: &UserDetails,
+        user_details: &mut UserDetails,
         user_publickey: &PublicKey,
-        constants: &OpenConstants<KEYLEN>,
+        constants: &mut OpenConstants<KEYLEN>,
     ) -> Result<ServerHandshake> {
         if num_effective_bytes(&user_publickey.num) > KEYLEN {
             return Err(Srp6Error::KeyLengthMismatch {
@@ -39,26 +45,22 @@ impl<const KEYLEN: usize> Srp6<KEYLEN> {
             });
         }
         let monty_N = Arc::new(BoxedMontyParams::new(constants.module.clone()));
-        let monty_v = BoxedMontyForm::new_with_arc(user_details.verifier.num.clone(), Arc::clone(&monty_N));
-        let b = generate_private_key_b(KEYLEN);
+        let b = generate_private_key_b::<KEYLEN>();
         let B = calculate_pubkey_B::<KEYLEN>(
-            Arc::clone(&monty_N),
-            &constants.generator,
-            &monty_v,
+            &monty_N,
+            &mut constants.generator,
+            &mut user_details.verifier,
             &b,
         );
 
-        self.b = b;
-        self.B = B.clone();
         self.A = user_publickey.clone();
-        self.U = SerUint::new(calculate_u::<KEYLEN>(&self.A, &self.B));
 
         self.S = calculate_session_key_S_for_host::<KEYLEN>(
-            Arc::clone(&monty_N),
-            &self.A,
-            &self.B,
-            &self.b,
-            &monty_v,
+            &monty_N,
+            &mut self.A,
+            &B,
+            &b,
+            &mut user_details.verifier,
         )?;
         self.K = calculate_session_key_hash_interleave_K::<KEYLEN>(&self.S);
         self.M = calculate_proof_M::<KEYLEN>(
@@ -67,7 +69,7 @@ impl<const KEYLEN: usize> Srp6<KEYLEN> {
             &user_details.username,
             &user_details.salt,
             &self.A,
-            &self.B,
+            &B,
             &self.K,
         );
 
@@ -77,16 +79,24 @@ impl<const KEYLEN: usize> Srp6<KEYLEN> {
         })
     }
 
-    pub fn verify_proof(self, users_proof: &Proof) -> Result<(Proof, PrivateKey)> {
+    pub fn verify_proof(self, users_proof: &Proof) -> Result<(Proof, SessionKey)> {
         if self.M != *users_proof {
-            // println!("{} != {}", self.M, users_proof);
-            // println!("{:?}", self);
-            return Err(Srp6Error::InvalidProof(users_proof.clone()));
+            println!("srv {:?} != user {:?}", self.M, users_proof);
+            println!("{:?}", self);
+            return Err(Srp6Error::InvalidProof(*users_proof));
         }
         let hamk = calculate_strong_proof_M2::<KEYLEN>(&self.A, &self.M, &self.K);
         Ok((hamk, self.S))
     }
 }
 
-pub type Srp6_4096 = Srp6<512>;
-pub type Srp6_2048 = Srp6<256>;
+impl<const KEYLEN: usize> Default for Srp6Host<KEYLEN> {
+    fn default() -> Self {
+        Srp6Host::new()
+    }
+}
+
+/// Server-side, 4096 bits (512 bytes).
+pub type Srp6Host4096 = Srp6Host<512>;
+/// Server-side, 2048 bits (256 bytes).
+pub type Srp6Host2048 = Srp6Host<256>;

@@ -1,4 +1,4 @@
-use crate::big_number::needed_precision;
+use crate::big_number::np::*;
 use crate::primitives::{Generator, OpenConstants, PrimeModulus};
 use crypto_bigint::BoxedUint;
 use hex_literal::hex;
@@ -7,11 +7,13 @@ pub(crate) mod host;
 pub(crate) mod user;
 
 impl Default for OpenConstants<512> {
-    /// taken from the 4096-bit group at
+    /// Recommended constants.
+    ///
+    /// Taken from the 4096-bit group at
     /// [RFC5054 Appendix A](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
     fn default() -> Self {
         Self {
-            generator: Generator::from_be_slice(&hex!("05"), needed_precision(512)).unwrap(),
+            generator: Generator::from_be_bytes(&hex!("05"), needed_precision::<512>()),
             module: PrimeModulus::new(
                 BoxedUint::from_be_slice(
                     &hex!(
@@ -35,7 +37,7 @@ impl Default for OpenConstants<512> {
                 D5B05AA9 93B4EA98 8D8FDDC1 86FFB7DC 90A6C08F 4DF435C9 34063199
                 FFFFFFFF FFFFFFFF"
                     ),
-                    needed_precision(512),
+                    needed_precision::<512>(),
                 )
                 .unwrap(),
             )
@@ -45,11 +47,13 @@ impl Default for OpenConstants<512> {
 }
 
 impl Default for OpenConstants<256> {
-    /// taken from the 2048-bit group at
+    /// Recommended constants.
+    ///
+    /// Taken from the 2048-bit group at
     /// [RFC5054 Appendix A](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
     fn default() -> Self {
         Self {
-            generator: Generator::from_be_slice(&hex!("02"), needed_precision(256)).unwrap(),
+            generator: Generator::from_be_bytes(&hex!("02"), needed_precision::<256>()),
             module: PrimeModulus::new(
                 BoxedUint::from_be_slice(
                     &hex!(
@@ -64,7 +68,7 @@ impl Default for OpenConstants<256> {
                 94B5C803 D89F7AE4 35DE236D 525F5475 9B65E372 FCD68EF2 0FA7111F
                 9E4AFF73"
                     ),
-                    needed_precision(256),
+                    needed_precision::<256>(),
                 )
                 .unwrap(),
             )
@@ -75,12 +79,13 @@ impl Default for OpenConstants<256> {
 
 #[cfg(test)]
 impl Default for OpenConstants<128> {
-    /// taken from the 1024-bit group at
+    /// Only available for tests, as it is not secure for production use.
+    ///
+    /// Taken from the 1024-bit group at
     /// [RFC5054 Appendix A](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
     fn default() -> Self {
         Self {
-            generator: Generator::from_be_slice(&hex!("02"), needed_precision(128)).unwrap(),
-            // generator: Generator::from_be_slice(&hex!("02"), needed_precision(20)).unwrap(),
+            generator: Generator::from_be_bytes(&hex!("02"), needed_precision::<128>()),
             module: PrimeModulus::new(
                 BoxedUint::from_be_slice(
                     &hex!(
@@ -90,7 +95,7 @@ impl Default for OpenConstants<128> {
                         7BCF1885 C529F566 660E57EC 68EDBC3C 05726CC0 2FD4CBF4 976EAA9A
                         FD5138FE 8376435B 9FC61D2F C0EB06E3"
                     ),
-                    needed_precision(128),
+                    needed_precision::<128>(),
                 )
                 .unwrap(),
             )

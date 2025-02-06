@@ -13,7 +13,7 @@ include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
 crypto-bigint = { version = "0.6.0", features = ["rand", "alloc", "serde"] }
-derive_more = { version = "1.0.0", features = ["error", "display"] }
+derive_more = { version = "2.0.1", features = ["error", "display"] }
 hex-literal = "0.4.1"
 num-traits = "0.2"
 serde = { version = "1.0.217", features = ["derive"] }
@@ -26,3 +26,4 @@ serde_json = "1.0.137"
 # use this in tests to remove randomness and use the test data
 # in RFC 5054 appendix B (only for 1024 version).
 norand = []
+empirical = []
