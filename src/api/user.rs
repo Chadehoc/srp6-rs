@@ -1,45 +1,51 @@
-// use super::host::Handshake;
-use crate::big_number::num_effective_bytes;
+//! Server-side handshake API.
+
+use crate::bignum::num_effective_bytes;
 use crate::primitives::*;
 use crate::{Result, Srp6Error};
 
-use crypto_bigint::modular::BoxedMontyParams;
 use std::sync::Arc;
 
+use crypto_bigint::modular::BoxedMontyParams;
+
+/// Client-side interaction API.
+///
+/// The generic size is expressed in bytes, not in bits. SRP-2048 is thus `Srp6User::<256>`.
+///
+/// Except for tests, only use the provided [`Srp6User2048`] or [`Srp6User4096`].
 #[derive(Debug)]
 pub struct Srp6User<const KEYLEN: usize> {
     pub A: PublicKey,
     a: PrivateKey,
     pub M: Proof,
     S: SessionKey,
-    K: StrongSessionKey,
+    K: SessionKeyHash,
     /// Known once session started
     monty_N: Option<Arc<BoxedMontyParams>>,
 }
 
 impl<const KEYLEN: usize> Srp6User<KEYLEN> {
+    /// Constructor, all defaults.
     pub fn new() -> Srp6User<KEYLEN> {
         Srp6User {
             A: Default::default(),
             a: Default::default(),
             M: Default::default(),
             S: Default::default(),
-            K: [0u8; STRONG_SESSION_KEY_LENGTH],
+            K: [0u8; SESSION_KEY_HASH_LENGTH],
             monty_N: None,
         }
     }
 
-    /// creates a new [`Salt`] `s` and [`PasswordVerifier`] `v` for a new user
+    /// Creates a new [`Salt`] `s` and [`PasswordVerifier`] `v` for a new user
     pub fn generate_new_user_secrets(
         I: UsernameRef,
         p: &ClearTextPassword,
         constants: &OpenConstants<KEYLEN>,
     ) -> UserDetails {
-        let salt = generate_salt(KEYLEN);
-        // let s = BigNumber::from_hex_str_be("FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED5290").unwrap();
+        let salt = generate_salt();
         let x = calculate_private_key_x::<KEYLEN>(I, p, &salt);
         let verifier = calculate_password_verifier_v(&constants.module, &constants.generator, &x);
-
         UserDetails {
             username: I.to_owned(),
             salt,
@@ -47,6 +53,7 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         }
     }
 
+    /// Start the handshake, only the username is required.
     pub fn start_handshake(
         &mut self,
         username: UsernameRef,
@@ -58,13 +65,13 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         self.a = a;
         self.A = A.clone();
         self.monty_N = Some(monty_N);
-
         UserHandshake {
             username: username.to_owned(),
             user_publickey: A,
         }
     }
 
+    /// Checks the server knew the correct details, only the issues a proof.
     pub fn update_handshake(
         &mut self,
         server_handshake: &ServerHandshake,
@@ -81,9 +88,7 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         // this clone could be avoided, but at the price of a &mut server_handshake
         // which would make the API heavier
         let mut B = server_handshake.server_publickey.clone();
-
         let mut x = calculate_private_key_x::<KEYLEN>(I, p, &server_handshake.salt);
-
         self.S = calculate_session_key_S_for_client::<KEYLEN>(
             self.monty_N.as_ref().unwrap(),
             &mut constants.generator,
@@ -105,9 +110,10 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         Ok(self.M)
     }
 
-    pub fn verify_proof(self, servers_proof: &StrongProof) -> Option<SessionKey> {
-        let my_strong_proof = calculate_strong_proof_M2::<KEYLEN>(&self.A, &self.M, &self.K);
-        if servers_proof == &my_strong_proof {
+    /// Verify the server proof, only then issue the share session key.
+    pub fn verify_proof(self, servers_proof: &ProofHash) -> Option<SessionKey> {
+        let proof_hash = calculate_proof_hash_M2::<KEYLEN>(&self.A, &self.M, &self.K);
+        if servers_proof == &proof_hash {
             Some(self.S)
         } else {
             None

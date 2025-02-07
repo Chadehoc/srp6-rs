@@ -3,14 +3,16 @@
 //! To also simulate serialization/deserialization between client and server,
 //! see in `lib.rs` the test called `test_handshake_serde_2048`.
 
-use chadehoc_srp6::*;
+use chadehoc_srp6::host::Srp6Host2048;
+use chadehoc_srp6::user::Srp6User2048;
+use chadehoc_srp6::OpenConstants;
 
 fn main() {
     // 1) Create new user, once
 
     // --- client side
     let username = "Bob";
-    let password: &ClearTextPassword = "secret-password";
+    let password = "secret-password";
     let mut constants = OpenConstants::default();
     let mut user_details = Srp6User2048::generate_new_user_secrets(username, password, &constants);
     // --- server side

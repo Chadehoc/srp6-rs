@@ -1,49 +1,46 @@
+// This allows to respect the official vocabulary.
 #![allow(non_snake_case)]
 
-/*!
-An implementation of Secure Remote Password (SRP6) authentication protocol.
+//! This is the repository README.md file. License links are broken from the
+//! generated documentation.
 
-**NOTE**: Please do only use key length >= 2048 bit in production. You can do so by using [`Srp6Host2048`] or [`Srp6Host4096`].
+// License links are broken doing this, acceptable
+#![allow(rustdoc::broken_intra_doc_links)]
+#![doc =include_str!("../README.md")]
 
-# Usage
-See the examples.
+//! ## Example
+//!
+//! This is the examples/authentication.rs file.
+//!
+//! ```rust, ignore
+#![doc =include_str!("../examples/authentication.rs")]
+//! ```
 
-# Note on key length
-this crate provides some default keys (as [`OpenConstants`]).
-The modulus prime and generator numbers are taken from [RFC5054].
+#[warn(rustdoc::broken_intra_doc_links)]
 
-# Further details and domain vocabolary
-- You can find the documentation of SRP6 [variables in a dedicated module][`protocol_details`].
-- [RFC2945](https://datatracker.ietf.org/doc/html/rfc2945) that describes in detail the Secure remote password protocol (SRP).
-- [RFC5054] that describes SRP6 for TLS Authentication
-- [check out the 2 examples](./examples) that illustrates the srp authentication flow as well
-
-[RFC5054]: (https://datatracker.ietf.org/doc/html/rfc5054)
-*/
 use derive_more::{Display, Error};
 
+pub(crate) mod primitives;
+mod api;
+mod bignum;
+mod hash;
 #[cfg(doc)]
 pub mod protocol_details;
 #[cfg(all(test, not(doc)))]
 mod protocol_details;
 
-pub(crate) mod primitives;
-
-mod api;
-mod big_number;
-mod hash;
-
-pub use api::host::{Srp6Host, Srp6Host2048, Srp6Host4096};
-pub use api::user::{Srp6User, Srp6User2048, Srp6User4096};
+pub use api::host;
+pub use api::user;
 pub use primitives::{
     ClearTextPassword, Generator, MultiplierParameter, OpenConstants, PasswordVerifier,
-    PrimeModulus, PrivateKey, Proof, PublicKey, Salt, ServerHandshake, SessionKey, StrongProof,
-    StrongSessionKey, UserCredentials, UserDetails, UserHandshake, Username, UsernameRef,
+    PrimeModulus, PrivateKey, Proof, ProofHash, PublicKey, Salt, ServerHandshake, SessionKey,
+    SessionKeyHash, UserDetails, UserHandshake, Username, UsernameRef,
 };
 
-/// encapsulates a [`Srp6Error`]
+/// Encapsulates a [`Srp6Error`]
 pub type Result<T> = std::result::Result<T, Srp6Error>;
 
+/// Authentication errors.
 #[derive(Error, Display, Debug, PartialEq, serde::Serialize)]
 pub enum Srp6Error {
     #[display(
@@ -54,8 +51,8 @@ pub enum Srp6Error {
     #[display("The provided proof is invalid")]
     InvalidProof(#[error(not(source))] Proof),
 
-    #[display("The provided strong proof is invalid")]
-    InvalidStrongProof(#[error(not(source))] StrongProof),
+    #[display("The provided proof is invalid")]
+    InvalidProofHash(#[error(not(source))] ProofHash),
 
     #[display("The provided public key is invalid")]
     InvalidPublicKey(#[error(not(source))] PublicKey),
@@ -65,6 +62,8 @@ pub enum Srp6Error {
 mod tests {
 
     use super::*;
+    use host::*;
+    use user::*;
 
     #[cfg(feature = "norand")]
     use crate::protocol_details::testdata;
@@ -179,13 +178,13 @@ mod tests {
         // println!("server_proof {transfer}");
         // client side
         let hamk = serde_json::from_str::<Proof>(&transfer).unwrap();
-        assert_eq!(hamk, hamk_0, "strong proof different");
+        assert_eq!(hamk, hamk_0, "proof hash different");
         let secret2 = srp6_user.verify_proof(&hamk).expect("invalid server proof");
         // both secrets
         assert_eq!(secret2, secret, "not same secrets");
     }
 
-    /// Test the handshake against an official test data.
+    /// Test the handshake against an official test data (needs feature `norand`).
     #[cfg(feature = "norand")]
     #[test]
     fn test_official_vectors_1024() {
@@ -236,6 +235,7 @@ mod tests {
         assert_eq!(expected_secret, secret, "S nok");
     }
 
+    /// Client and server using different versions.
     #[test]
     fn test_length_mismatch_1() {
         let username = "Bob";
@@ -259,6 +259,7 @@ mod tests {
         assert!(matches!(err, Srp6Error::KeyLengthMismatch { .. }));
     }
 
+    /// Client and server using different versions.
     #[test]
     fn test_length_mismatch_2() {
         let username = "Bob";
@@ -279,10 +280,6 @@ mod tests {
                 &mut server_constants,
             )
             .unwrap_err();
-        // // client will detect
-        // let err = srp6_user
-        //     .update_handshake(&server_handshake, &user_constants, username, password)
-        //     .unwrap_err();
         assert!(matches!(err, Srp6Error::KeyLengthMismatch { .. }));
     }
 }

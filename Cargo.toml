@@ -1,13 +1,13 @@
 [package]
 name = "chadehoc-srp6"
-version = "0.0.1"
+version = "0.1.0"
 authors = [
     "Sven Assmann <sven.assmann.it@gmail.com>",
     "Chadehoc <1562517+Chadehoc@users.noreply.github.com>",
     # also Github user "valpaq"
 ]
 edition = "2021"
-description = "A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6 and 6a)"
+description = "Implementation of the secure remote password authentication and key-exchange protocol SRP-6a"
 license = "MIT"
 include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 
@@ -24,6 +24,7 @@ serde_json = "1.0.137"
 
 [features]
 # use this in tests to remove randomness and use the test data
-# in RFC 5054 appendix B (only for 1024 version).
+# in RFC 5054 appendix B
 norand = []
-empirical = []
+# use this to allow empirical micro-optimisation
+emp = []

@@ -1,18 +1,4 @@
-/*!
-This module defines a list of all primitive types and functions
-needed to express the meaning of certain variables better.
-
-For instance in [RFC2945] the big prime number that acts
-as the modulus in every mathematical power operation is called `N`.
-
-In order to increase readability the type of `N` is
-an alias to [`BigNumber`] that aims to express the meaning,
-so [`PrimeModulus`] is same as `N` which is a [`BigNumber`].
-
-This scheme is applied for all variables used in the calculus.
-
-[RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
-*/
+//! Individual type aliases and computations defined in the RFCs.
 
 use std::sync::Arc;
 
@@ -22,73 +8,74 @@ use crypto_bigint::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::big_number::{new_rand, np::*, PrivUint, SerUint};
+use crate::bignum::{new_rand, np::*, MonUint, SerUint};
 use crate::hash::{from_hash, to_array_pad_zero, Digest, Hash, HashFunc, Update, HASH_LENGTH};
 #[cfg(all(test, feature = "norand"))]
 use crate::protocol_details::testdata;
 use crate::{Result, Srp6Error};
 
-pub const STRONG_SESSION_KEY_LENGTH: usize = HASH_LENGTH * 2;
+/// Size of the `K` interleaved hash
+pub const SESSION_KEY_HASH_LENGTH: usize = HASH_LENGTH * 2;
 
-/// Refers to a large safe prime called `N` (`N = 2q+1`, where `q` is prime)
+/// Size of the salt
+pub const SALT_LENGTH: usize = 16;
+
+/// Large safe modulus called `N`
 #[doc(alias = "N")]
 pub type PrimeModulus = Odd<BoxedUint>;
 
-/// Refers to the modulus generator `g`
+/// Modulus generator `g`
 #[doc(alias = "g")]
-pub type Generator = PrivUint;
+pub type Generator = MonUint;
 
-/// Refers to a User's salt called `s`
+/// User's salt called `s`
 #[doc(alias = "s")]
-pub type Salt = Vec<u8>;
+pub type Salt = [u8; SALT_LENGTH];
 
-/// Refers to a Public shared key called A (user), B (server)
+/// Public shared key called A (user), B (server)
 #[doc(alias("A", "B"))]
 pub type PublicKey = SerUint;
 
-/// Refers to a private secret random number a (user), b (server)
+/// Private secret random number a (user), b (server)
 #[doc(alias("a", "b"))]
-pub type PrivateKey = PrivUint;
+pub type PrivateKey = MonUint;
 
 /// Password Verifier is the users secret on the server side
 #[doc(alias = "v")]
 pub type PasswordVerifier = SerUint;
 
-/// Refers to a multiplier parameter `k` (k = H(N, g) in SRP-6a, k = 3 for legacy SRP-6)
+/// Multiplier parameter `k` = H(N, g)
 #[doc(alias = "k")]
-pub type MultiplierParameter = PrivUint;
+pub type MultiplierParameter = MonUint;
 
-/// Refers to the SessionKey `S`
+/// SessionKey `S`
 #[doc(alias = "S")]
 pub type SessionKey = BoxedUint;
-/// Refers to the StrongSessionKey `K`
-#[doc(alias = "K")]
-pub type StrongSessionKey = [u8; STRONG_SESSION_KEY_LENGTH];
 
-/// Refers to `M` and `M1` Proof of server and client
+/// Session key hash `K`
+#[doc(alias = "K")]
+pub type SessionKeyHash = [u8; SESSION_KEY_HASH_LENGTH];
+
+/// `M` and `M1` Proof of server and client
 #[doc(alias("M", "M1"))]
 pub type Proof = [u8; HASH_LENGTH];
-/// Refers to `M2` the hash of Proof
+
+/// `M2` is the hash of Proof
 #[doc(alias = "M2")]
-pub type StrongProof = [u8; HASH_LENGTH];
+pub type ProofHash = [u8; HASH_LENGTH];
 
 /// Username `I` as [`String`]
 #[doc(alias = "I")]
 pub type Username = String;
+
 /// Username reference `I` as [`&str`]
 pub type UsernameRef<'a> = &'a str;
+
 /// Clear text password `p` as [`str`]
 #[doc(alias = "p")]
 pub type ClearTextPassword = str;
 
-/// [`Username`] and [`ClearTextPassword`] used on the client side
-#[derive(Debug, Clone)]
-pub struct UserCredentials<'a> {
-    pub username: UsernameRef<'a>,
-    pub password: &'a ClearTextPassword,
-}
-
-/// User details composes [`Username`], [`Salt`] and [`PasswordVerifier`] in one struct
+/// User details sent to the server at creation time
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserDetails {
     pub username: Username,
@@ -96,32 +83,37 @@ pub struct UserDetails {
     pub verifier: PasswordVerifier,
 }
 
+/// User handshake data sent to the server
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserHandshake {
     pub username: Username,
     pub user_publickey: PublicKey,
 }
 
+/// Server handshake sent to the client
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerHandshake {
     pub salt: Salt,
     pub server_publickey: PublicKey,
 }
 
+/// Critical constants for SRP.
+///
+/// Use only recommended ones in RFC5054 (provided for 4096 and 2048 bits, 1024 only for tests).
 #[derive(Debug, Clone)]
 pub struct OpenConstants<const LEN: usize> {
     pub module: PrimeModulus,
     pub generator: Generator,
 }
 
-/// host version of a session key for a given user
-/// S: is the session key of a user
-/// u: is the hash of user and server pub keys
+/// Host version of a session key for a given user.
 ///
+/// ```plain, ignore
 /// u = H(A, B)
 /// S = (Av^u) ^ b
+/// ```
 pub(crate) fn calculate_session_key_S_for_host<const KEYLEN: usize>(
-    monty_N: &Arc<BoxedMontyParams>, // N: &PrimeModulus,
+    monty_N: &Arc<BoxedMontyParams>,
     A: &mut PublicKey,
     B: &PublicKey,
     b: &PrivateKey,
@@ -145,13 +137,11 @@ pub(crate) fn calculate_session_key_S_for_host<const KEYLEN: usize>(
     Ok(S)
 }
 
-/// client version of the session key calculation, depends on
-/// - the users [`PrivateKey`] `x`
-/// - the users [`PublicKey`] `A`
-/// - the servers [`PublicKey`] `B`
-/// - formulas found so far:
-///   - `S = (B - (k * g^x)) ^ (a + (u * x)) % N`
-///   - `S = (B - (k * v)) ^ (a + (u * x)) % N`
+/// Client version of the session key calculation.
+///
+/// ```plain, ignore
+/// S = ((B - k * g^x) ^ (a + u * x)) % N
+/// ```
 #[allow(clippy::many_single_char_names)]
 pub(crate) fn calculate_session_key_S_for_client<const KEYLEN: usize>(
     monty_N: &Arc<BoxedMontyParams>,
@@ -165,12 +155,8 @@ pub(crate) fn calculate_session_key_S_for_client<const KEYLEN: usize>(
     if bool::from((&B.num % monty_N.modulus().as_nz_ref()).is_zero()) {
         return Err(Srp6Error::InvalidPublicKey(B.clone()));
     }
-    // dbg!(&x.num.bits_precision());
     let u = calculate_u::<KEYLEN>(A, B);
-    // dbg!(u.bits_precision());
     let ux = u * &x.num;
-    // dbg!(ux.bits_precision());
-    // dbg!(needed_precision_pk::<KEYLEN>());
     let ux = ux.widen(needed_precision_pk::<KEYLEN>());
     let exp = &a.num + ux;
     let monty_g = g.get_monty::<KEYLEN>(monty_N);
@@ -184,12 +170,10 @@ pub(crate) fn calculate_session_key_S_for_client<const KEYLEN: usize>(
     Ok(S)
 }
 
-/// the hash of a session key `S` that is called `K`
-/// S: is the session key of a user
-/// K: is the hash of S, just not that straight
+/// Special hash of a session key `S`, called `K`.
 pub(crate) fn calculate_session_key_hash_interleave_K<const KEYLEN: usize>(
     S: &SessionKey,
-) -> StrongSessionKey {
+) -> SessionKeyHash {
     let S = to_array_pad_zero(S, KEYLEN);
     // take the even bytes out of S
     let mut half = Vec::with_capacity(KEYLEN / 2);
@@ -206,7 +190,7 @@ pub(crate) fn calculate_session_key_hash_interleave_K<const KEYLEN: usize>(
     // hash the odd portion of S
     let odd_half_of_S_hash = HashFunc::new().chain(&half).finalize();
     // interleave
-    let mut K: StrongSessionKey = [0u8; STRONG_SESSION_KEY_LENGTH];
+    let mut K: SessionKeyHash = [0u8; SESSION_KEY_HASH_LENGTH];
     for (i, h_Si) in even_half_of_S_hash
         .iter()
         .zip(odd_half_of_S_hash.iter())
@@ -218,6 +202,7 @@ pub(crate) fn calculate_session_key_hash_interleave_K<const KEYLEN: usize>(
     K
 }
 
+/// Proof `M` common for server and client
 pub(crate) fn calculate_proof_M<const KEYLEN: usize>(
     N: &PrimeModulus,
     g: &Generator,
@@ -225,7 +210,7 @@ pub(crate) fn calculate_proof_M<const KEYLEN: usize>(
     s: &Salt,
     A: &PublicKey,
     B: &PublicKey,
-    K: &StrongSessionKey,
+    K: &SessionKeyHash,
 ) -> Proof {
     let xor_hash: Hash = calculate_hash_N_xor_g::<KEYLEN>(N, g);
     let username_hash = HashFunc::new().chain(I.as_bytes()).finalize();
@@ -240,13 +225,14 @@ pub(crate) fn calculate_proof_M<const KEYLEN: usize>(
     digest.into()
 }
 
-/// todo(verify): check if padding is needed or not
+/// Proof hash `M2`.
+///
 /// formula: `H(A | M | K)`
-pub(crate) fn calculate_strong_proof_M2<const KEYLEN: usize>(
+pub(crate) fn calculate_proof_hash_M2<const KEYLEN: usize>(
     A: &PublicKey,
     M: &Proof,
-    K: &StrongSessionKey,
-) -> StrongProof {
+    K: &SessionKeyHash,
+) -> ProofHash {
     let digest = HashFunc::new()
         .chain(to_array_pad_zero(&A.num, KEYLEN))
         .chain(M)
@@ -255,9 +241,9 @@ pub(crate) fn calculate_strong_proof_M2<const KEYLEN: usize>(
     digest.into()
 }
 
-/// here we hash g and xor it with the hash of N
+/// Here we hash g and xor it with the hash of N
 ///
-/// ```plain
+/// ```plain, ignore
 /// M = H(H(N) xor H(g), H(I), s, A, B, K)
 ///       `````````````
 ///                    // this portion is calculated here
@@ -274,13 +260,9 @@ fn calculate_hash_N_xor_g<const KEYLEN: usize>(N: &PrimeModulus, g: &Generator) 
     H_n_g
 }
 
-/// here we calculate the `PasswordVerifier` called `v` based on `x`
-/// **Note**: something that only needs to be done on user pw change, or user creation
-/// `x`:  Private key (derived from p and s)
-/// `v`:  Password verifier
-/// `g`:  A generator modulo N
-/// `N`:  A large safe prime (N = 2q+1, where q is prime)
-/// formula: `v = g^x % N`
+/// here we calculate the `PasswordVerifier` called `v` based on `x` (derived from `p` ans `s`)
+///
+/// Formula: `v = g^x % N`
 pub(crate) fn calculate_password_verifier_v(
     N: &PrimeModulus,
     g: &Generator,
@@ -291,8 +273,9 @@ pub(crate) fn calculate_password_verifier_v(
     SerUint::new(v)
 }
 
-/// `u` is the hash of host's and client's [`PublicKey`]
-/// formula: `H(PAD(A) | PAD(B))`
+/// `u` is the hash of host's and client's [`PublicKey`].
+///
+/// Formula: `H(PAD(A) | PAD(B))`
 pub(crate) fn calculate_u<const KEYLEN: usize>(A: &PublicKey, B: &PublicKey) -> BoxedUint {
     let digest = HashFunc::new()
         .chain(to_array_pad_zero(&A.num, KEYLEN))
@@ -301,8 +284,9 @@ pub(crate) fn calculate_u<const KEYLEN: usize>(A: &PublicKey, B: &PublicKey) -> 
     from_hash(&digest) // u
 }
 
-/// `A` is the [`PublicKey`] of the client
-/// formula: `A = g^a % N`
+/// `A` is the [`PublicKey`] of the client.
+///
+/// Formula: `A = g^a % N`
 pub(crate) fn calculate_pubkey_A<const KEYLEN: usize>(
     g: &mut Generator,
     a: &PrivateKey,
@@ -313,8 +297,9 @@ pub(crate) fn calculate_pubkey_A<const KEYLEN: usize>(
     SerUint::new(A)
 }
 
-/// [`PublicKey`][B] is the hosts public key
-/// `B = kv + g^b`
+/// `B` is the [`PublicKey`] of the host.
+///
+/// Formmula: `B = kv + g^b`
 pub(crate) fn calculate_pubkey_B<const KEYLEN: usize>(
     monty_N: &Arc<BoxedMontyParams>,
     g: &mut Generator,
@@ -332,14 +317,16 @@ pub(crate) fn calculate_pubkey_B<const KEYLEN: usize>(
     SerUint::new(B)
 }
 
-/// `x` is the users private key (only they know)
+/// `x` is a users private key.
 ///
-/// I:  Username                (is uppercased for WoW)
-/// p:  Cleartext Password      (is uppercased for WoW)
+/// I:  Username
+/// p:  Cleartext Password
 /// s:  User's salt
-/// x:  Private key (derived from p and s)
+///
+/// ```plain, ignore
 /// ph = H(I, ':', p)           (':' is a string literal)
 /// x = H(s, ph)                (s is chosen randomly)
+/// ```
 pub(crate) fn calculate_private_key_x<const KEYLEN: usize>(
     I: UsernameRef,
     p: &ClearTextPassword,
@@ -351,7 +338,7 @@ pub(crate) fn calculate_private_key_x<const KEYLEN: usize>(
     x
 }
 
-/// hashes the user and the password (used for client private key `x`)
+/// Hashes the user and the password
 pub(crate) fn calculate_p_hash(I: UsernameRef, p: &ClearTextPassword) -> Hash {
     HashFunc::new()
         .chain(I.as_bytes())
@@ -361,7 +348,7 @@ pub(crate) fn calculate_p_hash(I: UsernameRef, p: &ClearTextPassword) -> Hash {
         .into()
 }
 
-/// `k = H(N | PAD(g))` (k = 3 for legacy SRP-6)
+/// Multiplier `k = H(N | PAD(g))` (k was 3 for legacy SRP-6)
 pub(crate) fn calculate_k<const KEYLEN: usize>(
     N: &PrimeModulus,
     g: &Generator,
@@ -373,30 +360,35 @@ pub(crate) fn calculate_k<const KEYLEN: usize>(
     MultiplierParameter::new(from_hash(&digest))
 }
 
-/// [`PrivateKey`] `a` or `b` is in fact just a big (positive) random number
+/// [`PrivateKey`] `a` is a big random number
 pub(crate) fn generate_private_key_a<const KEYLEN: usize>() -> PrivateKey {
     #[cfg_attr(feature = "norand", allow(unused_variables))]
-    let res = PrivateKey::new(new_rand(KEYLEN));
+    let res = PrivateKey::new(new_rand(KEYLEN / 4));
     #[cfg(all(test, feature = "norand"))]
     let res = PrivateKey::from_be_bytes(&testdata::A_PRIVATE, needed_precision::<KEYLEN>());
     res
 }
 
-/// [`PrivateKey`] `a` or `b` is in fact just a big (positive) random number
+/// [`PrivateKey`] `b` is a big (positive) random number
 pub(crate) fn generate_private_key_b<const KEYLEN: usize>() -> PrivateKey {
     #[cfg_attr(feature = "norand", allow(unused_variables))]
-    let res = PrivateKey::new(new_rand(KEYLEN));
+    let res = PrivateKey::new(new_rand(KEYLEN / 4));
     #[cfg(all(test, feature = "norand"))]
     let res = PrivateKey::from_be_bytes(&testdata::B_PRIVATE, needed_precision_pk::<KEYLEN>());
     res
 }
 
 /// [`Salt`] `s` is a random number
-pub(crate) fn generate_salt(key_len: usize) -> Salt {
+pub(crate) fn generate_salt() -> Salt {
     #[cfg_attr(feature = "norand", allow(unused_variables))]
-    let res = new_rand(key_len).to_be_bytes().to_vec();
+    let res: Salt = new_rand(SALT_LENGTH)
+        .to_be_bytes()
+        .as_ref()
+        .try_into()
+        .unwrap();
     #[cfg(all(test, feature = "norand"))]
-    let res = testdata::SALT.to_vec();
+    let res: Salt = testdata::SALT;
+    debug_assert_eq!(res.len(), 16, "salt should be 16 bytes (128 bits)");
     res
 }
 
@@ -419,10 +411,9 @@ mod tests {
 
     #[test]
     fn test_private_x() {
-        let salt = &testdata::SALT.to_vec();
+        let salt = &testdata::SALT;
         let x = from_data_hash(&testdata::X);
-        let x_calc =
-            calculate_private_key_x::<128>(&testdata::USERNAME, &testdata::PASSWORD, &salt);
+        let x_calc = calculate_private_key_x::<128>(&testdata::USERNAME, &testdata::PASSWORD, salt);
         assert!(x_calc.num == x);
     }
 
@@ -519,8 +510,8 @@ mod tests {
         let mut big_ser = SerUint::new(from_data::<KEYLEN>(&vec![255u8; KEYLEN]));
         let mut big_ser2 = SerUint::new(from_data::<KEYLEN>(&vec![255u8; KEYLEN]));
         let mut big_ser3 = SerUint::new(from_data::<KEYLEN>(&vec![255u8; KEYLEN]));
-        let mut big_priv = PrivUint::new(from_data_pk::<KEYLEN>(&vec![255u8; KEYLEN / 4]));
-        let mut big_hash = PrivUint::new(from_data_hash(&vec![255u8; HASH_LENGTH]));
+        let mut big_priv = MonUint::new(from_data_pk::<KEYLEN>(&vec![255u8; KEYLEN / 4]));
+        let mut big_hash = MonUint::new(from_data_hash(&vec![255u8; HASH_LENGTH]));
         let b_calc =
             calculate_pubkey_B::<KEYLEN>(&monty_n, &mut cst.generator, &mut big_ser, &big_priv);
         assert!(b_calc.num.bits_precision() <= needed);

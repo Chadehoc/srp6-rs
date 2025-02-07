@@ -3,7 +3,10 @@
 //!
 //! Change the `KEYLEN` to change the tested version.
 
-use chadehoc_srp6::*;
+use chadehoc_srp6::host::Srp6Host;
+use chadehoc_srp6::user::Srp6User;
+use chadehoc_srp6::OpenConstants;
+
 use std::time::{Duration, Instant};
 
 const KEYLEN: usize = 512;
@@ -14,7 +17,7 @@ fn main() {
         std::process::exit(1);
     }
     let username = "Bob";
-    let password: &ClearTextPassword = "secret-password";
+    let password = "secret-password";
     let mut constants = OpenConstants::<KEYLEN>::default();
     let mut user_details =
         Srp6User::<KEYLEN>::generate_new_user_secrets(username, password, &constants);

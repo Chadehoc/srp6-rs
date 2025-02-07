@@ -1,19 +1,20 @@
-# Secure Remote Password (SRP 6 / 6a)
-
-**This is a fork of a fork (<https://github.com/valpaq/srp6-rs>), the original
-published repository is (<https://github.com/sassman/srp6-rs>).**
+# Secure Remote Password SRP 6a implementation
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 Implementation of the secure remote password authentication and key-exchange
 protocol (SRP version 6a).
 
-The first fork had flaws for use in a real client-server setting:
-illogical serialization directions, funny constants for 2048 version,
-changes in protocol, big/little-endian errors...
+This is a heavily reworked fork of <https://github.com/valpaq/srp6-rs>, which was
+itself a fork of <https://github.com/sassman/srp6-rs>, which was published as the
+[srp6-rs crate](https://docs.rs/srp6), which is flawed.
 
-The second fork fixed many things, but remained incomplete and not directly
-usable with a true client and server (instead of a simulation in examples).
+Features:
+
+- Client and server implementation of SRP 6a as in [RFC5054]
+- Pure Rust, free of unsafe code
+- No openssl dependencies
+- Constant-time computations using [crypto-bigint]
 
 ## About SRP
 
@@ -26,44 +27,34 @@ usable with a true client and server (instead of a simulation in examples).
 > nearly every type of human-authenticated network traffic on a variety of
 > computing platforms.
 
-read more at [srp.stanford.edu](http://srp.stanford.edu) and in [RFC2945] that describes in detail the Secure remote password protocol.
+Read more at [srp.stanford.edu](http://srp.stanford.edu) and in [RFC2945] that
+describes in detail an earlier version of the Secure remote password protocol.
 
-## Features
-
-- client and server implementation of SRP 6 / 6a as in [RFC2945]
-- key length of 2048 to 4096 bit provided as in [RFC5054]
-- free of unsafe code
-- no openssl dependencies
-- rust native
+The current implementation follows the enhanced [RFC5054].
 
 ## Documentation
 
-The current crate is a fork of a fork. The best documentation currently is to
-look at the examples, and especially unit test code in lib.rs.
+The best documentation currently is to
+look at the examples and generate the Rustdoc documentation.
 
-The documentation of the original crate (<https://github.com/sassman/srp6-rs>)
-is at:
+### Features
 
-- [official crate docs](https://docs.rs/srp6)
-- [examples of usage](https://github.com/sassman/srp6-rs/blob/main/examples)
-
-[RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
-[RFC5054]: https://datatracker.ietf.org/doc/html/rfc5054#appendix-A
-
-## Test Data
-
-Run tests with the 'norand' feature to test against the data provided in RFC 5054 appendix B.
-
-The test is called `test_official_vectors_1024`.
-
-## TODO
-
-- need less clone()
-- rename big_number
-- documentation, and readme
-- bump version
+- `norand`: run tests with this feature (`cargo test -F norand`) to add a test
+  named `test_official_vectors_1024`, which runs the whole handshake against the
+  data provided in RFC 5054 appendix B (individual steps are already done as
+  unit tests, but this adds the whole protocol together). This feature actually
+  replaces random data generation with fixed values for the tests.
+- `emp`: using the [crypto-bigint] crate for constant-time computations
+  brings a substantial performance penalty, especially for SRP-4096. This
+  feature is intended to isolate micro-optimisations that were only empirically
+  validated.
 
 ## License
 
 - **[MIT License](LICENSE)**
 - Copyright 2021 © [Sven Assmann](https://www.d34dl0ck.me)
+- Copyright 2025 © Chadehoc
+
+[RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
+[RFC5054]: https://datatracker.ietf.org/doc/html/rfc5054#appendix-A
+[crypto-bigint]: https://docs.rs/crypto-bigint/latest/crypto_bigint/index.html

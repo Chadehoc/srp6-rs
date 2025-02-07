@@ -1,31 +1,39 @@
-// use super::user::{HandshakeProof, StrongProofVerifier};
-use crate::big_number::num_effective_bytes;
+//! Server-side handshake API.
+
+use crate::bignum::num_effective_bytes;
 use crate::primitives::*;
 use crate::Result;
 use crate::Srp6Error;
 
-use crypto_bigint::modular::BoxedMontyParams;
 use std::sync::Arc;
 
-/// Main interaction point for the server
+use crypto_bigint::modular::BoxedMontyParams;
+
+/// Server-side interaction API.
+///
+/// The generic size is expressed in bytes, not in bits. SRP-2048 is thus `Srp6Host::<256>`.
+///
+/// Except for tests, only use the provided [`Srp6Host2048`] or [`Srp6Host4096`].
 #[derive(Debug)]
 pub struct Srp6Host<const KEYLEN: usize> {
     pub A: PublicKey,
     S: SessionKey,
     M: Proof,
-    K: StrongSessionKey,
+    K: SessionKeyHash,
 }
 
 impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
+    /// Constructor (all default).
     pub fn new() -> Srp6Host<KEYLEN> {
         Srp6Host {
             A: Default::default(),
             S: Default::default(),
             M: Default::default(),
-            K: [0u8; STRONG_SESSION_KEY_LENGTH],
+            K: [0u8; SESSION_KEY_HASH_LENGTH],
         }
     }
 
+    /// Process user_details reveived from the client.
     pub fn continue_handshake(
         &mut self,
         user_details: &mut UserDetails,
@@ -74,18 +82,19 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
         );
 
         Ok(ServerHandshake {
-            salt: user_details.salt.clone(),
+            salt: user_details.salt,
             server_publickey: B,
         })
     }
 
+    /// Verify the client is ok, only then issues a proof and the share session key.
     pub fn verify_proof(self, users_proof: &Proof) -> Result<(Proof, SessionKey)> {
         if self.M != *users_proof {
             println!("srv {:?} != user {:?}", self.M, users_proof);
             println!("{:?}", self);
             return Err(Srp6Error::InvalidProof(*users_proof));
         }
-        let hamk = calculate_strong_proof_M2::<KEYLEN>(&self.A, &self.M, &self.K);
+        let hamk = calculate_proof_hash_M2::<KEYLEN>(&self.A, &self.M, &self.K);
         Ok((hamk, self.S))
     }
 }

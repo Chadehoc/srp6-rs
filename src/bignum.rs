@@ -1,50 +1,78 @@
-use crypto_bigint::{
-    modular::{BoxedMontyForm, BoxedMontyParams},
-    BoxedUint,
-};
-use serde::{de::Visitor, Deserialize, Serialize};
+//! Utilities around [`crypto_bigint::BoxedUint`].
+
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crypto_bigint::{rand_core::OsRng, Random, Uint};
+use crypto_bigint::{
+    modular::{BoxedMontyForm, BoxedMontyParams},
+    BoxedUint,
+    rand_core::OsRng, Random, Uint,
+};
+use serde::{de::Visitor, Deserialize, Serialize};
 
+/// Give good values to [`crypto_bigint::BoxedUint::bits_precision`].
+///
+/// Meant for `use np::*`.
+///
+/// Those values are critical for performance, but if lot large enough,
+/// computations will crash with overflow. The safe side is to double the needed
+/// size, but empirically (under feature `emp`) a bit shorter is ok (by a fixed,
+/// not proportional values, because of Montgomery form compatibility
+/// constraints). See test `primitives::tests::test_needed_precisions`, and
+/// fuzzing tests.
 pub mod np {
-    #[cfg(feature = "empirical")]
-    const TOLERANCE: u32 = 2 * crypto_bigint::Limb::BITS;
-    #[cfg(not(feature = "empirical"))]
+    #[cfg(feature = "emp")]
+    const TOLERANCE: u32 = 128;
+    #[cfg(not(feature = "emp"))]
     const TOLERANCE: u32 = 0;
 
-    pub const fn needed_precision<const NBYTES: usize>() -> u32 {
-        (NBYTES * 8) as u32 * 2 - TOLERANCE
+    /// Needed precision (in bits) for full length keys.
+    ///
+    /// See module doc [`super`].
+    pub const fn needed_precision<const KEYLEN: usize>() -> u32 {
+        (KEYLEN * 8) as u32 * 2 - TOLERANCE
     }
 
+    /// Needed precision (in bits) for private keys, which are 4x smaller.
+    ///
+    /// See module doc [`super`].
     pub const fn needed_precision_pk<const NBYTES: usize>() -> u32 {
         (NBYTES * 2) as u32 * 2 - TOLERANCE
     }
 }
 
+/// Nb of effective bytes used to represent this number.
 pub fn num_effective_bytes(big: &BoxedUint) -> usize {
     (big.bits() as usize).div_ceil(8)
 }
 
+/// Add to [`BoxedUint`] an optional cache for its Montgomery form.
+///
+/// Non-serialisable version, typically for private keys, which
+/// never transit over the network.
 #[derive(Debug, Clone, Default, PartialEq, Eq, derive_more::Display)]
 #[display("{}", num)]
-pub struct PrivUint {
+pub struct MonUint {
+    /// Wrapped value
     pub num: BoxedUint,
+    /// Optional cache
     pub monty: Option<BoxedMontyForm>,
 }
 
-impl PrivUint {
-    pub fn new(num: BoxedUint) -> PrivUint {
-        PrivUint { num, monty: None }
+impl MonUint {
+    pub fn new(num: BoxedUint) -> MonUint {
+        MonUint { num, monty: None }
     }
 
-    pub fn from_be_bytes(bytes: &[u8], bits_precision: u32) -> PrivUint {
-        PrivUint::new(
+    /// Panics if wrong precision.
+    pub fn from_be_bytes(bytes: &[u8], bits_precision: u32) -> MonUint {
+        MonUint::new(
             BoxedUint::from_be_slice(bytes, bits_precision).expect("précision exacte attendue"),
         )
     }
 
+    /// Get the Montgomery form of the number, with a cache to compute it only
+    /// once on first demand.
     pub fn get_monty<const KEYLEN: usize>(&mut self, n: &Arc<BoxedMontyParams>) -> &BoxedMontyForm {
         if self.monty.is_none() {
             self.monty = Some(BoxedMontyForm::new_with_arc(
@@ -56,10 +84,15 @@ impl PrivUint {
     }
 }
 
+/// Like a [``MonUint`] but serializable.
+///
+/// For e.g. public keys, that can be transferred over the network.
 #[derive(Debug, Clone, Default, PartialEq, Eq, derive_more::Display)]
 #[display("{}", num)]
 pub struct SerUint {
+    /// Wrapped value
     pub num: BoxedUint,
+    /// Optional cache
     pub monty: Option<BoxedMontyForm>,
 }
 
@@ -68,12 +101,15 @@ impl SerUint {
         SerUint { num, monty: None }
     }
 
+    /// Panics if wrong precision.
     pub fn from_be_bytes(bytes: &[u8], bits_precision: u32) -> SerUint {
         SerUint::new(
             BoxedUint::from_be_slice(bytes, bits_precision).expect("précision exacte attendue"),
         )
     }
 
+    /// Get the Montgomery form of the number, with a cache to compute it only
+    /// once on first demand.
     pub fn get_monty<const KEYLEN: usize>(&mut self, n: &Arc<BoxedMontyParams>) -> &BoxedMontyForm {
         if self.monty.is_none() {
             self.monty = Some(BoxedMontyForm::new_with_arc(
@@ -134,14 +170,19 @@ impl<'de> Deserialize<'de> for SerUint {
     }
 }
 
-pub fn new_rand(key_len: usize) -> BoxedUint {
-    match key_len {
-        // 512 (4096 bits)
-        Uint::<64>::BYTES => Uint::<64>::random(&mut OsRng).into(),
-        // 256 (2048 bits)
-        Uint::<32>::BYTES => Uint::<32>::random(&mut OsRng).into(),
-        // 128 (1024 bits)
-        Uint::<16>::BYTES => Uint::<16>::random(&mut OsRng).into(),
+/// Wraps crypto_bigint's random number generation.
+///
+/// Used for private keys and salt.
+pub fn new_rand(nbytes: usize) -> BoxedUint {
+    match nbytes {
+        // 128 bytes, for SRP4096 pk
+        Uint::<16>::BYTES => Uint::<64>::random(&mut OsRng).into(),
+        // 64 for SRP2048 pk
+        Uint::<8>::BYTES => Uint::<32>::random(&mut OsRng).into(),
+        // 32 for SRP1024 pk
+        Uint::<4>::BYTES => Uint::<16>::random(&mut OsRng).into(),
+        // 16 for salt (whatever the key length)
+        Uint::<2>::BYTES => Uint::<2>::random(&mut OsRng).into(),
         _ => unimplemented!("key_len not implemented"),
     }
 }

@@ -1,16 +1,19 @@
+//! Hashing (SHA-1) utilities.
+
+use crate::bignum::num_effective_bytes;
+
+use crypto_bigint::BoxedUint;
 pub use sha1::digest::Update;
 pub use sha1::Digest;
-
-use crate::big_number::num_effective_bytes;
-use crypto_bigint::BoxedUint;
 
 pub const HASH_LENGTH: usize = 20;
 pub type Hash = [u8; HASH_LENGTH];
 pub type HashFunc = sha1::Sha1;
 
+/// Panics if hash length is the wrong size.
 pub fn from_hash(hash: &[u8]) -> BoxedUint {
     debug_assert_eq!(hash.len(), HASH_LENGTH, "not the expected hash length");
-    BoxedUint::from_be_slice(hash, (HASH_LENGTH as u32) * 8).expect("hash illisible")
+    BoxedUint::from_be_slice(hash, (HASH_LENGTH as u32) * 8).expect("unreadable hash")
 }
 
 /// Returns as byte vec in big endian byte order, padded in front by 0 for `len` bytes

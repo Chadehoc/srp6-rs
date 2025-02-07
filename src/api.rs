@@ -1,10 +1,17 @@
-use crate::big_number::np::*;
+/*! Host (server) and User (client) APIs.
+
+Modules [`host`] and [`user`] offer the APIS. Here are also defined recommended
+defaults for [OpenConstants] according to RFC 5054.
+SRP can become insecure if used with constants that are not carefully crafted.
+ */
+
+use crate::bignum::np::*;
 use crate::primitives::{Generator, OpenConstants, PrimeModulus};
 use crypto_bigint::BoxedUint;
 use hex_literal::hex;
 
-pub(crate) mod host;
-pub(crate) mod user;
+pub mod host;
+pub mod user;
 
 impl Default for OpenConstants<512> {
     /// Recommended constants.
