@@ -37,17 +37,17 @@ The current implementation follows the enhanced [RFC5054].
 The best documentation currently is to
 look at the examples and generate the Rustdoc documentation.
 
-### Features
+## Features
 
-- `norand`: run tests with this feature (`cargo test -F norand`) to add a test
-  named `test_official_vectors_1024`, which runs the whole handshake against the
-  data provided in RFC 5054 appendix B (individual steps are already done as
-  unit tests, but this adds the whole protocol together). This feature actually
-  replaces random data generation with fixed values for the tests.
 - `emp`: using the [crypto-bigint] crate for constant-time computations
   brings a substantial performance penalty, especially for SRP-4096. This
   feature is intended to isolate micro-optimisations that were only empirically
   validated.
+
+## Fuzzing
+
+The provided `srp` target (`cargo +nightly fuzz run srp`) is used with the `emp`
+feature activated, and SRP-2048 only.
 
 ## License
 

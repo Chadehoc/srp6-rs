@@ -10,8 +10,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::bignum::{new_rand, np::*, MonUint, SerUint};
 use crate::hash::{from_hash, to_array_pad_zero, Digest, Hash, HashFunc, Update, HASH_LENGTH};
-#[cfg(all(test, feature = "norand"))]
-use crate::protocol_details::testdata;
 use crate::{Result, Srp6Error};
 
 /// Size of the `K` interleaved hash
@@ -70,10 +68,6 @@ pub type Username = String;
 
 /// Username reference `I` as [`&str`]
 pub type UsernameRef<'a> = &'a str;
-
-/// Clear text password `p` as [`str`]
-#[doc(alias = "p")]
-pub type ClearTextPassword = str;
 
 /// User details sent to the server at creation time
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -329,7 +323,7 @@ pub(crate) fn calculate_pubkey_B<const KEYLEN: usize>(
 /// ```
 pub(crate) fn calculate_private_key_x<const KEYLEN: usize>(
     I: UsernameRef,
-    p: &ClearTextPassword,
+    p: &str,
     s: &Salt,
 ) -> PrivateKey {
     let ph = calculate_p_hash(I, p);
@@ -339,7 +333,7 @@ pub(crate) fn calculate_private_key_x<const KEYLEN: usize>(
 }
 
 /// Hashes the user and the password
-pub(crate) fn calculate_p_hash(I: UsernameRef, p: &ClearTextPassword) -> Hash {
+pub(crate) fn calculate_p_hash(I: UsernameRef, p: &str) -> Hash {
     HashFunc::new()
         .chain(I.as_bytes())
         .chain(":".as_bytes())
@@ -362,33 +356,21 @@ pub(crate) fn calculate_k<const KEYLEN: usize>(
 
 /// [`PrivateKey`] `a` is a big random number
 pub(crate) fn generate_private_key_a<const KEYLEN: usize>() -> PrivateKey {
-    #[cfg_attr(feature = "norand", allow(unused_variables))]
-    let res = PrivateKey::new(new_rand(KEYLEN / 4));
-    #[cfg(all(test, feature = "norand"))]
-    let res = PrivateKey::from_be_bytes(&testdata::A_PRIVATE, needed_precision::<KEYLEN>());
-    res
+    PrivateKey::new(new_rand(KEYLEN / 4))
 }
 
-/// [`PrivateKey`] `b` is a big (positive) random number
+/// [`PrivateKey`] `b` is a big random number
 pub(crate) fn generate_private_key_b<const KEYLEN: usize>() -> PrivateKey {
-    #[cfg_attr(feature = "norand", allow(unused_variables))]
-    let res = PrivateKey::new(new_rand(KEYLEN / 4));
-    #[cfg(all(test, feature = "norand"))]
-    let res = PrivateKey::from_be_bytes(&testdata::B_PRIVATE, needed_precision_pk::<KEYLEN>());
-    res
+    PrivateKey::new(new_rand(KEYLEN / 4))
 }
 
 /// [`Salt`] `s` is a random number
 pub(crate) fn generate_salt() -> Salt {
-    #[cfg_attr(feature = "norand", allow(unused_variables))]
     let res: Salt = new_rand(SALT_LENGTH)
         .to_be_bytes()
         .as_ref()
         .try_into()
         .unwrap();
-    #[cfg(all(test, feature = "norand"))]
-    let res: Salt = testdata::SALT;
-    debug_assert_eq!(res.len(), 16, "salt should be 16 bytes (128 bits)");
     res
 }
 

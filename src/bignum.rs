@@ -46,6 +46,15 @@ pub fn num_effective_bytes(big: &BoxedUint) -> usize {
     (big.bits() as usize).div_ceil(8)
 }
 
+fn from_be_bytes(bytes: &[u8], bits_precision: u32) -> BoxedUint {
+    BoxedUint::from_be_slice(bytes, bits_precision).unwrap_or_else(|e| {
+        panic!(
+            "wrong bits precision, expected {bits_precision}, given {}, error {e}",
+            bytes.len() * 8
+        )
+    })
+}
+
 /// Add to [`BoxedUint`] an optional cache for its Montgomery form.
 ///
 /// Non-serialisable version, typically for private keys, which
@@ -66,9 +75,7 @@ impl MonUint {
 
     /// Panics if wrong precision.
     pub fn from_be_bytes(bytes: &[u8], bits_precision: u32) -> MonUint {
-        MonUint::new(
-            BoxedUint::from_be_slice(bytes, bits_precision).expect("précision exacte attendue"),
-        )
+        MonUint::new(from_be_bytes(bytes, bits_precision))
     }
 
     /// Get the Montgomery form of the number, with a cache to compute it only
@@ -81,6 +88,15 @@ impl MonUint {
             ));
         }
         self.monty.as_ref().unwrap()
+    }
+}
+
+#[cfg(feature = "arbitrary")]
+/// Targetting SRP-2048 private keys (64 bytes).
+impl<'a> arbitrary::Arbitrary<'a> for MonUint {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let bytes = u.arbitrary::<[u8; 64]>()?;
+        Ok(Self::from_be_bytes(&bytes, 64 * 8))
     }
 }
 
@@ -103,9 +119,7 @@ impl SerUint {
 
     /// Panics if wrong precision.
     pub fn from_be_bytes(bytes: &[u8], bits_precision: u32) -> SerUint {
-        SerUint::new(
-            BoxedUint::from_be_slice(bytes, bits_precision).expect("précision exacte attendue"),
-        )
+        SerUint::new(from_be_bytes(bytes, bits_precision))
     }
 
     /// Get the Montgomery form of the number, with a cache to compute it only

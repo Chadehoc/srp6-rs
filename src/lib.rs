@@ -17,13 +17,12 @@
 //! ```
 
 #[warn(rustdoc::broken_intra_doc_links)]
-
 use derive_more::{Display, Error};
 
-pub(crate) mod primitives;
 mod api;
 mod bignum;
 mod hash;
+pub(crate) mod primitives;
 #[cfg(doc)]
 pub mod protocol_details;
 #[cfg(all(test, not(doc)))]
@@ -31,11 +30,7 @@ mod protocol_details;
 
 pub use api::host;
 pub use api::user;
-pub use primitives::{
-    ClearTextPassword, Generator, MultiplierParameter, OpenConstants, PasswordVerifier,
-    PrimeModulus, PrivateKey, Proof, ProofHash, PublicKey, Salt, ServerHandshake, SessionKey,
-    SessionKeyHash, UserDetails, UserHandshake, Username, UsernameRef,
-};
+pub use primitives::*;
 
 /// Encapsulates a [`Srp6Error`]
 pub type Result<T> = std::result::Result<T, Srp6Error>;
@@ -64,8 +59,8 @@ mod tests {
     use super::*;
     use host::*;
     use user::*;
+    use crate::bignum::np::needed_precision_pk;
 
-    #[cfg(feature = "norand")]
     use crate::protocol_details::testdata;
 
     /// Test similar to the example, full handshake but no data transfer.
@@ -74,7 +69,7 @@ mod tests {
         OpenConstants<KEYLEN>: Default,
     {
         let username = "Bob";
-        let password: &ClearTextPassword = "secret-password";
+        let password = "secret-password";
         let mut constants = OpenConstants::<KEYLEN>::default();
         // new user : those are sent to the server and stored there
         let mut user_details =
@@ -124,7 +119,7 @@ mod tests {
     #[test]
     fn test_handshake_serde_2048() {
         let username = "fred";
-        let password: &ClearTextPassword = "password_fred";
+        let password = "password_fred";
         let mut constants = OpenConstants::default();
         // new user : those are sent to the server and stored there
         let user_details_0 =
@@ -184,23 +179,24 @@ mod tests {
         assert_eq!(secret2, secret, "not same secrets");
     }
 
-    /// Test the handshake against an official test data (needs feature `norand`).
-    #[cfg(feature = "norand")]
+    /// Test the full handshake against an official test data
     #[test]
     fn test_official_vectors_1024() {
         type Srp6User1024 = Srp6User<128>;
         type Srp61024 = Srp6Host<128>;
         let username = testdata::USERNAME;
-        let password: &ClearTextPassword = testdata::PASSWORD;
+        let password = testdata::PASSWORD;
         let mut constants = OpenConstants::default();
         // new user : those are sent to the server and stored there
         let mut user_details =
-            Srp6User1024::generate_new_user_secrets(username, password, &constants);
+            generate_new_user_secrets_with_salt(username, password, &constants, testdata::SALT);
         let official_verifier = PublicKey::from_be_bytes(&testdata::VERIFIER, 1024);
         assert_eq!(official_verifier, user_details.verifier, "verifier nok");
-        // user creates a handshake
+        // user creates a handshake with nominal values
         let mut srp6_user = Srp6User1024::new();
-        let user_handshake = srp6_user.start_handshake(username, &mut constants);
+        let a = PrivateKey::from_be_bytes(&testdata::A_PRIVATE, needed_precision_pk::<128>());
+        let b = PrivateKey::from_be_bytes(&testdata::B_PRIVATE, needed_precision_pk::<128>());
+        let user_handshake = start_handshake_with_a::<128>(&mut srp6_user, &username, &mut constants, a);
         let official_user_publickey = PublicKey::from_be_bytes(&testdata::A_PUBLIC, 1024);
         assert_eq!(
             official_user_publickey, user_handshake.user_publickey,
@@ -208,11 +204,12 @@ mod tests {
         );
         // server retrieves stored details and continues the handshake
         let mut srp6 = Srp61024::new();
-        let server_handshake = srp6
-            .continue_handshake(
+        let server_handshake = continue_handshake_with_b::<128>(
+                &mut srp6,
                 &mut user_details,
                 &user_handshake.user_publickey,
                 &mut constants,
+                b,
             )
             .unwrap();
         let official_server_publickey = PublicKey::from_be_bytes(&testdata::B_PUBLIC, 1024);
@@ -239,7 +236,7 @@ mod tests {
     #[test]
     fn test_length_mismatch_1() {
         let username = "Bob";
-        let password: &ClearTextPassword = "secret-password";
+        let password = "secret-password";
         // client is 4096
         let mut user_constants = OpenConstants::default();
         let mut user_details =
@@ -263,7 +260,7 @@ mod tests {
     #[test]
     fn test_length_mismatch_2() {
         let username = "Bob";
-        let password: &ClearTextPassword = "secret-password";
+        let password = "secret-password";
         // client is 2048
         let mut user_constants = OpenConstants::default();
         let mut user_details =

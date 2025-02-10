@@ -40,10 +40,19 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     /// Creates a new [`Salt`] `s` and [`PasswordVerifier`] `v` for a new user
     pub fn generate_new_user_secrets(
         I: UsernameRef,
-        p: &ClearTextPassword,
+        p: &str,
         constants: &OpenConstants<KEYLEN>,
     ) -> UserDetails {
         let salt = generate_salt();
+        Self::generate_new_user_secrets_with_salt(I, p, constants, salt)
+    }
+
+    fn generate_new_user_secrets_with_salt(
+        I: UsernameRef,
+        p: &str,
+        constants: &OpenConstants<KEYLEN>,
+        salt: Salt,
+    ) -> UserDetails {
         let x = calculate_private_key_x::<KEYLEN>(I, p, &salt);
         let verifier = calculate_password_verifier_v(&constants.module, &constants.generator, &x);
         UserDetails {
@@ -60,6 +69,15 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         constants: &mut OpenConstants<KEYLEN>,
     ) -> UserHandshake {
         let a = generate_private_key_a::<KEYLEN>();
+        self.start_handshake_with_a(username, constants, a)
+    }
+
+    fn start_handshake_with_a(
+        &mut self,
+        username: UsernameRef,
+        constants: &mut OpenConstants<KEYLEN>,
+        a: PrivateKey,
+    ) -> UserHandshake {
         let monty_N = Arc::new(BoxedMontyParams::new(constants.module.clone()));
         let A = calculate_pubkey_A::<KEYLEN>(&mut constants.generator, &a, &monty_N);
         self.a = a;
@@ -77,7 +95,7 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         server_handshake: &ServerHandshake,
         constants: &mut OpenConstants<KEYLEN>,
         I: UsernameRef,
-        p: &ClearTextPassword,
+        p: &str,
     ) -> Result<Proof> {
         if num_effective_bytes(&server_handshake.server_publickey.num) > KEYLEN {
             return Err(Srp6Error::KeyLengthMismatch {
@@ -125,6 +143,27 @@ impl<const KEYLEN: usize> Default for Srp6User<KEYLEN> {
     fn default() -> Self {
         Srp6User::new()
     }
+}
+
+/// Allow a non-random `b` for tests
+#[cfg(any(test, feature = "arbitrary"))]
+pub fn start_handshake_with_a<const KEYLEN: usize>(
+    this: &mut Srp6User<KEYLEN>,
+    username: UsernameRef,
+    constants: &mut OpenConstants<KEYLEN>,
+    a: PrivateKey,
+) -> UserHandshake {
+    this.start_handshake_with_a(username, constants, a)
+}
+
+#[cfg(any(test, feature = "arbitrary"))]
+pub fn generate_new_user_secrets_with_salt<const KEYLEN: usize>(
+    I: UsernameRef,
+    p: &str,
+    constants: &OpenConstants<KEYLEN>,
+    salt: Salt,
+) -> UserDetails {
+    Srp6User::<KEYLEN>::generate_new_user_secrets_with_salt(I, p, constants, salt)
 }
 
 /// Client-side, 4096 bits (512 bytes).

@@ -18,13 +18,12 @@ hex-literal = "0.4.1"
 num-traits = "0.2"
 serde = { version = "1.0.217", features = ["derive"] }
 sha1 = "0.10.1"
+# fuzzing
+arbitrary = { version = "1.4.1", optional = true, features = ["derive"] }
 
 [dev-dependencies]
 serde_json = "1.0.137"
 
 [features]
-# use this in tests to remove randomness and use the test data
-# in RFC 5054 appendix B
-norand = []
 # use this to allow empirical micro-optimisation
 emp = []

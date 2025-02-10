@@ -64,12 +64,6 @@ H(A | M | K)
    If the server detects that the user's proof is incorrect,
    it must abort without showing its own proof of `K`.
 
-## Test Data
-
-Run tests with the 'norand' feature to test the full handshake
-against the data provided in RFC 5054 appendix B. This adds
-a test called `test_official_vectors_1024`.
-
 ## References
 - [EKE](https://en.wikipedia.org/wiki/Encrypted_key_exchange)
 - [papers](http://srp.stanford.edu/doc.html#papers)

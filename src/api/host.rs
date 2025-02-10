@@ -40,6 +40,17 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
         user_publickey: &PublicKey,
         constants: &mut OpenConstants<KEYLEN>,
     ) -> Result<ServerHandshake> {
+        let b = generate_private_key_b::<KEYLEN>();
+        self.continue_handshake_with_b(user_details, user_publickey, constants, b)
+    }
+
+    fn continue_handshake_with_b(
+        &mut self,
+        user_details: &mut UserDetails,
+        user_publickey: &PublicKey,
+        constants: &mut OpenConstants<KEYLEN>,
+        b: PrivateKey,
+    ) -> Result<ServerHandshake> {
         if num_effective_bytes(&user_publickey.num) > KEYLEN {
             return Err(Srp6Error::KeyLengthMismatch {
                 given: num_effective_bytes(&user_publickey.num),
@@ -53,7 +64,6 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
             });
         }
         let monty_N = Arc::new(BoxedMontyParams::new(constants.module.clone()));
-        let b = generate_private_key_b::<KEYLEN>();
         let B = calculate_pubkey_B::<KEYLEN>(
             &monty_N,
             &mut constants.generator,
@@ -103,6 +113,19 @@ impl<const KEYLEN: usize> Default for Srp6Host<KEYLEN> {
     fn default() -> Self {
         Srp6Host::new()
     }
+}
+
+/// Allow a non-random `b` for tests
+#[cfg(any(test, feature = "arbitrary"))]
+pub fn continue_handshake_with_b<const KEYLEN: usize>(
+        this: &mut Srp6Host::<KEYLEN>,
+        user_details: &mut UserDetails,
+        user_publickey: &PublicKey,
+        constants: &mut OpenConstants<KEYLEN>,
+        b: PrivateKey,
+    ) -> Result<ServerHandshake>
+{
+    this.continue_handshake_with_b(user_details, user_publickey, constants, b)
 }
 
 /// Server-side, 4096 bits (512 bytes).
