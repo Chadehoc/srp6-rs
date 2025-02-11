@@ -82,11 +82,6 @@ impl MonUint {
         MonUint::new(from_be_bytes(bytes, bits_precision))
     }
 
-    /// Useful.
-    pub fn to_be_bytes(&self) -> Box<[u8]> {
-        self.num.to_be_bytes()
-    }
-
     /// Get the Montgomery form of the number, with a cache to compute it only
     /// once on first demand.
     pub fn get_monty<const KEYLEN: usize>(&self, n: &Arc<BoxedMontyParams>) -> &BoxedMontyForm {
@@ -136,6 +131,11 @@ impl SerUint {
     /// Panics if wrong precision.
     pub fn from_be_bytes(bytes: &[u8], bits_precision: u32) -> SerUint {
         SerUint::new(from_be_bytes(bytes, bits_precision))
+    }
+
+    /// Only for [`SerUint`].
+    pub fn to_be_bytes(&self) -> Box<[u8]> {
+        self.num.to_be_bytes()
     }
 
     /// Get the Montgomery form of the number, with a cache to compute it only

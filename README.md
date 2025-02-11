@@ -7,14 +7,17 @@ protocol (SRP version 6a).
 
 This is a heavily reworked fork of <https://github.com/valpaq/srp6-rs>, which was
 itself a fork of <https://github.com/sassman/srp6-rs>, which was published as the
-[srp6-rs crate](https://docs.rs/srp6), which is flawed.
+[srp6-rs crate](https://docs.rs/srp6) (which is flawed).
+
+Since then I found there was a more official
+[srp crate](https://docs.rs/srp/latest/srp/index.html)
+maintained by the [Rust Crypto](https://github.com/RustCrypto) group.
 
 Features:
 
-- Client and server implementation of SRP 6a as in [RFC5054]
-- Pure Rust, free of unsafe code
-- No openssl dependencies
-- Constant-time computations using [crypto-bigint]
+- Pure Rust client and server implementation of SRP 6a as in [RFC5054]
+- Constant-time computations using [crypto-bigint] (at the price of a high
+  performance penalty)
 
 ## About SRP
 
