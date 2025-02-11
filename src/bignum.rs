@@ -1,12 +1,13 @@
 //! Utilities around [`crypto_bigint::BoxedUint`].
 
+use std::cell::OnceCell;
 use std::fmt::Debug;
 use std::sync::Arc;
 
 use crypto_bigint::{
     modular::{BoxedMontyForm, BoxedMontyParams},
-    BoxedUint,
-    rand_core::OsRng, Random, Uint,
+    rand_core::OsRng,
+    BoxedUint, Random, Uint,
 };
 use serde::{de::Visitor, Deserialize, Serialize};
 
@@ -65,12 +66,15 @@ pub struct MonUint {
     /// Wrapped value
     pub num: BoxedUint,
     /// Optional cache
-    pub monty: Option<BoxedMontyForm>,
+    pub monty: OnceCell<BoxedMontyForm>,
 }
 
 impl MonUint {
     pub fn new(num: BoxedUint) -> MonUint {
-        MonUint { num, monty: None }
+        MonUint {
+            num,
+            monty: OnceCell::new(),
+        }
     }
 
     /// Panics if wrong precision.
@@ -78,16 +82,25 @@ impl MonUint {
         MonUint::new(from_be_bytes(bytes, bits_precision))
     }
 
+    /// Useful.
+    pub fn to_be_bytes(&self) -> Box<[u8]> {
+        self.num.to_be_bytes()
+    }
+
     /// Get the Montgomery form of the number, with a cache to compute it only
     /// once on first demand.
-    pub fn get_monty<const KEYLEN: usize>(&mut self, n: &Arc<BoxedMontyParams>) -> &BoxedMontyForm {
-        if self.monty.is_none() {
-            self.monty = Some(BoxedMontyForm::new_with_arc(
-                self.num.widen(np::needed_precision::<KEYLEN>()),
-                Arc::clone(n),
-            ));
+    pub fn get_monty<const KEYLEN: usize>(&self, n: &Arc<BoxedMontyParams>) -> &BoxedMontyForm {
+        match self.monty.get() {
+            Some(m) => m,
+            None => {
+                let m = BoxedMontyForm::new_with_arc(
+                    self.num.widen(np::needed_precision::<KEYLEN>()),
+                    Arc::clone(n),
+                );
+                self.monty.set(m).unwrap();
+                self.monty.get().unwrap()
+            }
         }
-        self.monty.as_ref().unwrap()
     }
 }
 
@@ -109,12 +122,15 @@ pub struct SerUint {
     /// Wrapped value
     pub num: BoxedUint,
     /// Optional cache
-    pub monty: Option<BoxedMontyForm>,
+    pub monty: OnceCell<BoxedMontyForm>,
 }
 
 impl SerUint {
     pub fn new(num: BoxedUint) -> SerUint {
-        SerUint { num, monty: None }
+        SerUint {
+            num,
+            monty: OnceCell::new(),
+        }
     }
 
     /// Panics if wrong precision.
@@ -124,14 +140,18 @@ impl SerUint {
 
     /// Get the Montgomery form of the number, with a cache to compute it only
     /// once on first demand.
-    pub fn get_monty<const KEYLEN: usize>(&mut self, n: &Arc<BoxedMontyParams>) -> &BoxedMontyForm {
-        if self.monty.is_none() {
-            self.monty = Some(BoxedMontyForm::new_with_arc(
-                self.num.widen(np::needed_precision::<KEYLEN>()),
-                Arc::clone(n),
-            ));
+    pub fn get_monty<const KEYLEN: usize>(&self, n: &Arc<BoxedMontyParams>) -> &BoxedMontyForm {
+        match self.monty.get() {
+            Some(m) => m,
+            None => {
+                let m = BoxedMontyForm::new_with_arc(
+                    self.num.widen(np::needed_precision::<KEYLEN>()),
+                    Arc::clone(n),
+                );
+                self.monty.set(m).unwrap();
+                self.monty.get().unwrap()
+            }
         }
-        self.monty.as_ref().unwrap()
     }
 }
 

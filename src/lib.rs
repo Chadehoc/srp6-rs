@@ -57,9 +57,9 @@ pub enum Srp6Error {
 mod tests {
 
     use super::*;
+    use crate::bignum::np::needed_precision_pk;
     use host::*;
     use user::*;
-    use crate::bignum::np::needed_precision_pk;
 
     use crate::protocol_details::testdata;
 
@@ -196,7 +196,8 @@ mod tests {
         let mut srp6_user = Srp6User1024::new();
         let a = PrivateKey::from_be_bytes(&testdata::A_PRIVATE, needed_precision_pk::<128>());
         let b = PrivateKey::from_be_bytes(&testdata::B_PRIVATE, needed_precision_pk::<128>());
-        let user_handshake = start_handshake_with_a::<128>(&mut srp6_user, &username, &mut constants, a);
+        let user_handshake =
+            start_handshake_with_a::<128>(&mut srp6_user, username, &mut constants, a);
         let official_user_publickey = PublicKey::from_be_bytes(&testdata::A_PUBLIC, 1024);
         assert_eq!(
             official_user_publickey, user_handshake.user_publickey,
@@ -205,13 +206,13 @@ mod tests {
         // server retrieves stored details and continues the handshake
         let mut srp6 = Srp61024::new();
         let server_handshake = continue_handshake_with_b::<128>(
-                &mut srp6,
-                &mut user_details,
-                &user_handshake.user_publickey,
-                &mut constants,
-                b,
-            )
-            .unwrap();
+            &mut srp6,
+            &mut user_details,
+            &user_handshake.user_publickey,
+            &mut constants,
+            b,
+        )
+        .unwrap();
         let official_server_publickey = PublicKey::from_be_bytes(&testdata::B_PUBLIC, 1024);
         assert_eq!(
             official_server_publickey, server_handshake.server_publickey,

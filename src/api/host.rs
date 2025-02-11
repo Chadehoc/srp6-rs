@@ -36,9 +36,9 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
     /// Process user_details reveived from the client.
     pub fn continue_handshake(
         &mut self,
-        user_details: &mut UserDetails,
+        user_details: &UserDetails,
         user_publickey: &PublicKey,
-        constants: &mut OpenConstants<KEYLEN>,
+        constants: &OpenConstants<KEYLEN>,
     ) -> Result<ServerHandshake> {
         let b = generate_private_key_b::<KEYLEN>();
         self.continue_handshake_with_b(user_details, user_publickey, constants, b)
@@ -46,9 +46,9 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
 
     fn continue_handshake_with_b(
         &mut self,
-        user_details: &mut UserDetails,
+        user_details: &UserDetails,
         user_publickey: &PublicKey,
-        constants: &mut OpenConstants<KEYLEN>,
+        constants: &OpenConstants<KEYLEN>,
         b: PrivateKey,
     ) -> Result<ServerHandshake> {
         if num_effective_bytes(&user_publickey.num) > KEYLEN {
@@ -66,8 +66,8 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
         let monty_N = Arc::new(BoxedMontyParams::new(constants.module.clone()));
         let B = calculate_pubkey_B::<KEYLEN>(
             &monty_N,
-            &mut constants.generator,
-            &mut user_details.verifier,
+            &constants.generator,
+            &user_details.verifier,
             &b,
         );
 
@@ -75,10 +75,10 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
 
         self.S = calculate_session_key_S_for_host::<KEYLEN>(
             &monty_N,
-            &mut self.A,
+            &self.A,
             &B,
             &b,
-            &mut user_details.verifier,
+            &user_details.verifier,
         )?;
         self.K = calculate_session_key_hash_interleave_K::<KEYLEN>(&self.S);
         self.M = calculate_proof_M::<KEYLEN>(
@@ -118,13 +118,12 @@ impl<const KEYLEN: usize> Default for Srp6Host<KEYLEN> {
 /// Allow a non-random `b` for tests
 #[cfg(any(test, feature = "arbitrary"))]
 pub fn continue_handshake_with_b<const KEYLEN: usize>(
-        this: &mut Srp6Host::<KEYLEN>,
-        user_details: &mut UserDetails,
-        user_publickey: &PublicKey,
-        constants: &mut OpenConstants<KEYLEN>,
-        b: PrivateKey,
-    ) -> Result<ServerHandshake>
-{
+    this: &mut Srp6Host<KEYLEN>,
+    user_details: &UserDetails,
+    user_publickey: &PublicKey,
+    constants: &OpenConstants<KEYLEN>,
+    b: PrivateKey,
+) -> Result<ServerHandshake> {
     this.continue_handshake_with_b(user_details, user_publickey, constants, b)
 }
 

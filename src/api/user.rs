@@ -66,7 +66,7 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     pub fn start_handshake(
         &mut self,
         username: UsernameRef,
-        constants: &mut OpenConstants<KEYLEN>,
+        constants: &OpenConstants<KEYLEN>,
     ) -> UserHandshake {
         let a = generate_private_key_a::<KEYLEN>();
         self.start_handshake_with_a(username, constants, a)
@@ -75,11 +75,11 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     fn start_handshake_with_a(
         &mut self,
         username: UsernameRef,
-        constants: &mut OpenConstants<KEYLEN>,
+        constants: &OpenConstants<KEYLEN>,
         a: PrivateKey,
     ) -> UserHandshake {
         let monty_N = Arc::new(BoxedMontyParams::new(constants.module.clone()));
-        let A = calculate_pubkey_A::<KEYLEN>(&mut constants.generator, &a, &monty_N);
+        let A = calculate_pubkey_A::<KEYLEN>(&constants.generator, &a, &monty_N);
         self.a = a;
         self.A = A.clone();
         self.monty_N = Some(monty_N);
@@ -93,7 +93,7 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     pub fn update_handshake(
         &mut self,
         server_handshake: &ServerHandshake,
-        constants: &mut OpenConstants<KEYLEN>,
+        constants: &OpenConstants<KEYLEN>,
         I: UsernameRef,
         p: &str,
     ) -> Result<Proof> {
@@ -105,15 +105,15 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         }
         // this clone could be avoided, but at the price of a &mut server_handshake
         // which would make the API heavier
-        let mut B = server_handshake.server_publickey.clone();
-        let mut x = calculate_private_key_x::<KEYLEN>(I, p, &server_handshake.salt);
+        let B = server_handshake.server_publickey.clone();
+        let x = calculate_private_key_x::<KEYLEN>(I, p, &server_handshake.salt);
         self.S = calculate_session_key_S_for_client::<KEYLEN>(
             self.monty_N.as_ref().unwrap(),
-            &mut constants.generator,
-            &mut B,
+            &constants.generator,
+            &B,
             &self.A,
-            &mut self.a,
-            &mut x,
+            &self.a,
+            &x,
         )?;
         self.K = calculate_session_key_hash_interleave_K::<KEYLEN>(&self.S);
         self.M = calculate_proof_M::<KEYLEN>(
@@ -150,7 +150,7 @@ impl<const KEYLEN: usize> Default for Srp6User<KEYLEN> {
 pub fn start_handshake_with_a<const KEYLEN: usize>(
     this: &mut Srp6User<KEYLEN>,
     username: UsernameRef,
-    constants: &mut OpenConstants<KEYLEN>,
+    constants: &OpenConstants<KEYLEN>,
     a: PrivateKey,
 ) -> UserHandshake {
     this.start_handshake_with_a(username, constants, a)

@@ -42,7 +42,7 @@ look at the examples and generate the Rustdoc documentation.
 - `emp`: using the [crypto-bigint] crate for constant-time computations
   brings a substantial performance penalty, especially for SRP-4096. This
   feature is intended to isolate micro-optimisations that were only empirically
-  validated.
+  validated (fuzzing included).
 
 ## Fuzzing
 
