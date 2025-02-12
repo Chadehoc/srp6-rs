@@ -46,9 +46,6 @@ pub enum Srp6Error {
     #[display("The provided proof is invalid")]
     InvalidProof(#[error(not(source))] Proof),
 
-    #[display("The provided proof is invalid")]
-    InvalidProofHash(#[error(not(source))] ProofHash),
-
     #[display("The provided public key is invalid")]
     InvalidPublicKey(#[error(not(source))] PublicKey),
 }

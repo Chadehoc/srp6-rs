@@ -133,8 +133,8 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     /// Verify the server proof, only then issue the share session key.
     ///
     /// This last step consumes self.
-    pub fn verify_proof(self, servers_proof: &ProofHash) -> Option<SessionKey> {
-        let proof_hash = calculate_proof_hash_M2::<KEYLEN>(&self.A, &self.M, &self.K);
+    pub fn verify_proof(self, servers_proof: &Proof) -> Option<SessionKey> {
+        let proof_hash = calculate_proof_M2::<KEYLEN>(&self.A, &self.M, &self.K);
         if servers_proof == &proof_hash {
             Some(self.S)
         } else {

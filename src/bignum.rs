@@ -65,9 +65,9 @@ fn from_be_bytes(bytes: &[u8], bits_precision: u32) -> BoxedUint {
 #[display("{}", num)]
 pub struct MonUint {
     /// Wrapped value
-    pub num: BoxedUint,
+    pub(crate) num: BoxedUint,
     /// Optional cache
-    pub monty: OnceCell<BoxedMontyForm>,
+    pub(crate) monty: OnceCell<BoxedMontyForm>,
 }
 
 impl MonUint {
@@ -123,9 +123,9 @@ impl<'a> arbitrary::Arbitrary<'a> for MonUint {
 #[display("{}", num)]
 pub struct SerUint {
     /// Wrapped value
-    pub num: BoxedUint,
+    pub(crate) num: BoxedUint,
     /// Optional cache
-    pub monty: OnceCell<BoxedMontyForm>,
+    pub(crate) monty: OnceCell<BoxedMontyForm>,
 }
 
 impl SerUint {
@@ -160,6 +160,11 @@ impl SerUint {
                 self.monty.get().unwrap()
             }
         }
+    }
+
+    /// Check the (key-)size of the represented number.
+    pub fn bits_precision(&self) -> u32 {
+        self.num.bits_precision()
     }
 }
 

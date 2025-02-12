@@ -58,12 +58,8 @@ pub type SessionKey = Zeroizing<BoxedUint>;
 pub type SessionKeyHash = [u8; SESSION_KEY_HASH_LENGTH];
 
 /// `M` and `M1` Proof of server and client
-#[doc(alias("M", "M1"))]
+#[doc(alias("M", "M1", "M2"))]
 pub type Proof = [u8; HASH_LENGTH];
-
-/// `M2` is the hash of Proof
-#[doc(alias = "M2")]
-pub type ProofHash = [u8; HASH_LENGTH];
 
 /// Username `I` as [`String`]
 #[doc(alias = "I")]
@@ -227,11 +223,11 @@ pub(crate) fn calculate_proof_M<const KEYLEN: usize>(
 /// Proof hash `M2`.
 ///
 /// formula: `H(A | M | K)`
-pub(crate) fn calculate_proof_hash_M2<const KEYLEN: usize>(
+pub(crate) fn calculate_proof_M2<const KEYLEN: usize>(
     A: &PublicKey,
     M: &Proof,
     K: &SessionKeyHash,
-) -> ProofHash {
+) -> Proof {
     let digest = HashFunc::new()
         .chain(to_array_pad_zero(&A.num, KEYLEN))
         .chain(M)

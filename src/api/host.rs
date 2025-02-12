@@ -107,7 +107,7 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
             println!("{:?}", self);
             return Err(Srp6Error::InvalidProof(*users_proof));
         }
-        let hamk = calculate_proof_hash_M2::<KEYLEN>(&self.A, &self.M, &self.K);
+        let hamk = calculate_proof_M2::<KEYLEN>(&self.A, &self.M, &self.K);
         Ok((hamk, self.S))
     }
 }
