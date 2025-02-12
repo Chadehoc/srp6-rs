@@ -2,7 +2,6 @@
 
 Modules [`host`] and [`user`] offer the APIS. Here are also defined recommended
 defaults for [OpenConstants] according to RFC 5054.
-SRP can become insecure if used with constants that are not carefully crafted.
  */
 
 use crate::bignum::np::*;

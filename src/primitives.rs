@@ -7,6 +7,7 @@ use crypto_bigint::{
     BoxedUint, Odd,
 };
 use serde::{Deserialize, Serialize};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use crate::bignum::{new_rand, np::*, MonUint, SerUint};
 use crate::hash::{from_hash, to_array_pad_zero, Digest, Hash, HashFunc, Update, HASH_LENGTH};
@@ -46,9 +47,11 @@ pub type PasswordVerifier = SerUint;
 #[doc(alias = "k")]
 pub type MultiplierParameter = MonUint;
 
-/// SessionKey `S`
+/// SessionKey `S`.
+///
+/// This is the only secret that will escape the handshake.
 #[doc(alias = "S")]
-pub type SessionKey = BoxedUint;
+pub type SessionKey = Zeroizing<BoxedUint>;
 
 /// Session key hash `K`
 #[doc(alias = "K")]
@@ -70,7 +73,7 @@ pub type Username = String;
 pub type UsernameRef<'a> = &'a str;
 
 /// User details sent to the server at creation time
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct UserDetails {
     pub username: Username,
     pub salt: Salt,
@@ -84,8 +87,10 @@ pub struct UserHandshake {
     pub user_publickey: PublicKey,
 }
 
-/// Server handshake sent to the client
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Server handshake sent to the client.
+///
+/// Will be zeroized after use (contains the salt).
+#[derive(Debug, Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct ServerHandshake {
     pub salt: Salt,
     pub server_publickey: PublicKey,
@@ -128,7 +133,7 @@ pub(crate) fn calculate_session_key_S_for_host<const KEYLEN: usize>(
     let monty_v = v.get_monty::<KEYLEN>(monty_N);
     let base = monty_A * monty_v.pow(&u);
     let S = base.pow(&b.num).retrieve();
-    Ok(S)
+    Ok(Zeroizing::new(S))
 }
 
 /// Client version of the session key calculation.
@@ -143,7 +148,7 @@ pub(crate) fn calculate_session_key_S_for_client<const KEYLEN: usize>(
     B: &PublicKey,
     A: &PublicKey,
     a: &PrivateKey,
-    x: &PrivateKey,
+    x: PrivateKey,
 ) -> Result<SessionKey> {
     // safeguard B % N == 0
     if bool::from((&B.num % monty_N.modulus().as_nz_ref()).is_zero()) {
@@ -161,7 +166,7 @@ pub(crate) fn calculate_session_key_S_for_client<const KEYLEN: usize>(
     let monty_B = B.get_monty::<KEYLEN>(monty_N);
     let base = monty_B - &to_sub;
     let S = base.pow(&exp).retrieve();
-    Ok(S)
+    Ok(Zeroizing::new(S))
 }
 
 /// Special hash of a session key `S`, called `K`.
@@ -444,7 +449,7 @@ mod tests {
         let public_a = PublicKey::new(from_testdata(&testdata::A_PUBLIC));
         let private_b = PrivateKey::new(from_testdata_pk(&testdata::B_PRIVATE));
         let public_b = PublicKey::new(from_testdata(&testdata::B_PUBLIC));
-        let secret = from_testdata(&testdata::SECRET);
+        let secret = Zeroizing::new(from_testdata(&testdata::SECRET));
         let monty_n = Arc::new(BoxedMontyParams::new(cst.module.clone()));
         let calc_secret = calculate_session_key_S_for_host::<128>(
             &monty_n, &public_a, &public_b, &private_b, &verifier,
@@ -460,7 +465,7 @@ mod tests {
         let private_a = PrivateKey::new(from_testdata_pk(&testdata::A_PRIVATE));
         let public_b = PublicKey::new(from_testdata(&testdata::B_PUBLIC));
         let x = PrivateKey::new(from_data_hash(&testdata::X));
-        let secret = from_testdata(&testdata::SECRET);
+        let secret = Zeroizing::new(from_testdata(&testdata::SECRET));
         let monty_n = Arc::new(BoxedMontyParams::new(cst.module.clone()));
         let calc_secret = calculate_session_key_S_for_client::<128>(
             &monty_n,
@@ -468,7 +473,7 @@ mod tests {
             &public_b,
             &public_a,
             &private_a,
-            &x,
+            x,
         )
         .unwrap();
         assert_eq!(calc_secret, secret);
@@ -498,7 +503,7 @@ mod tests {
             &big_ser,
             &big_ser2,
             &big_priv,
-            &big_hash,
+            big_hash,
         )
         .unwrap();
         assert!(s_calc_client.bits_precision() <= needed);

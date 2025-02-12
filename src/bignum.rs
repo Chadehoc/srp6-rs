@@ -10,6 +10,7 @@ use crypto_bigint::{
     BoxedUint, Random, Uint,
 };
 use serde::{de::Visitor, Deserialize, Serialize};
+use zeroize::Zeroize;
 
 /// Give good values to [`crypto_bigint::BoxedUint::bits_precision`].
 ///
@@ -99,6 +100,13 @@ impl MonUint {
     }
 }
 
+impl Zeroize for MonUint {
+    fn zeroize(&mut self) {
+        self.num = BoxedUint::zero();
+        self.monty = OnceCell::default();
+    }
+}
+
 #[cfg(feature = "arbitrary")]
 /// Targetting SRP-2048 private keys (64 bytes).
 impl<'a> arbitrary::Arbitrary<'a> for MonUint {
@@ -152,6 +160,13 @@ impl SerUint {
                 self.monty.get().unwrap()
             }
         }
+    }
+}
+
+impl Zeroize for SerUint {
+    fn zeroize(&mut self) {
+        self.num = BoxedUint::zero();
+        self.monty = OnceCell::default();
     }
 }
 

@@ -12,8 +12,9 @@ use crypto_bigint::modular::BoxedMontyParams;
 /// Server-side interaction API.
 ///
 /// The generic size is expressed in bytes, not in bits. SRP-2048 is thus `Srp6Host::<256>`.
-///
 /// Except for tests, only use the provided [`Srp6Host2048`] or [`Srp6Host4096`].
+///
+/// There is no secret-"zeroizing" concern, as the server is considered safe.
 #[derive(Debug)]
 pub struct Srp6Host<const KEYLEN: usize> {
     pub A: PublicKey,
@@ -36,7 +37,7 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
     /// Process user_details reveived from the client.
     pub fn continue_handshake(
         &mut self,
-        user_details: &UserDetails,
+        user_details: UserDetails,
         user_publickey: &PublicKey,
         constants: &OpenConstants<KEYLEN>,
     ) -> Result<ServerHandshake> {
@@ -46,7 +47,7 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
 
     fn continue_handshake_with_b(
         &mut self,
-        user_details: &UserDetails,
+        user_details: UserDetails,
         user_publickey: &PublicKey,
         constants: &OpenConstants<KEYLEN>,
         b: PrivateKey,
@@ -98,6 +99,8 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
     }
 
     /// Verify the client is ok, only then issues a proof and the share session key.
+    ///
+    /// This last step consumes self.
     pub fn verify_proof(self, users_proof: &Proof) -> Result<(Proof, SessionKey)> {
         if self.M != *users_proof {
             println!("srv {:?} != user {:?}", self.M, users_proof);
@@ -119,7 +122,7 @@ impl<const KEYLEN: usize> Default for Srp6Host<KEYLEN> {
 #[cfg(any(test, feature = "arbitrary"))]
 pub fn continue_handshake_with_b<const KEYLEN: usize>(
     this: &mut Srp6Host<KEYLEN>,
-    user_details: &UserDetails,
+    user_details: UserDetails,
     user_publickey: &PublicKey,
     constants: &OpenConstants<KEYLEN>,
     b: PrivateKey,

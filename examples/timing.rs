@@ -9,7 +9,7 @@ use chadehoc_srp6::OpenConstants;
 
 use std::time::{Duration, Instant};
 
-const KEYLEN: usize = 512;
+const KEYLEN: usize = 256;
 
 fn main() {
     if cfg!(debug_assertions) {
@@ -18,26 +18,26 @@ fn main() {
     }
     let username = "Bob";
     let password = "secret-password";
-    let mut constants = OpenConstants::<KEYLEN>::default();
-    let mut user_details =
+    let constants = OpenConstants::<KEYLEN>::default();
+    let user_details =
         Srp6User::<KEYLEN>::generate_new_user_secrets(username, password, &constants);
     // durations are averaged in a loop
-    const NLOOPS: u32 = 100;
+    const NLOOPS: usize = 100;
+    // pre-compute clones to let the artificial added durations mostly out
+    let cloned_details = std::iter::repeat_with(|| user_details.clone())
+        .take(NLOOPS)
+        .collect::<Vec<_>>();
     let mut durations = Duration::default();
-    for _ in 0..NLOOPS {
+    for detail in cloned_details {
         let start = Instant::now();
         let mut srp6_user = Srp6User::<KEYLEN>::new();
-        let user_handshake = srp6_user.start_handshake(username, &mut constants);
+        let user_handshake = srp6_user.start_handshake(username, &constants);
         let mut srp6 = Srp6Host::<KEYLEN>::new();
         let server_handshake = srp6
-            .continue_handshake(
-                &mut user_details,
-                &user_handshake.user_publickey,
-                &mut constants,
-            )
+            .continue_handshake(detail, &user_handshake.user_publickey, &constants)
             .unwrap();
         let proof = srp6_user
-            .update_handshake(&server_handshake, &mut constants, username, password)
+            .update_handshake(server_handshake, &constants, username, password)
             .unwrap();
         let (hamk, secret) = srp6.verify_proof(&proof).expect("invalid client proof");
         let secret2 = srp6_user.verify_proof(&hamk).expect("invalid server proof");
@@ -46,6 +46,6 @@ fn main() {
         // secrets are the same
         assert_eq!(secret2, secret, "not same secrets");
     }
-    let avg: Duration = durations / NLOOPS;
+    let avg: Duration = durations / NLOOPS as u32;
     println!("Time elapsed in auth {KEYLEN} is: {avg:?} ({NLOOPS} loops)");
 }

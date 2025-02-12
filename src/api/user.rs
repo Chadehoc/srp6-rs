@@ -7,16 +7,18 @@ use crate::{Result, Srp6Error};
 use std::sync::Arc;
 
 use crypto_bigint::modular::BoxedMontyParams;
+use zeroize::Zeroizing;
 
 /// Client-side interaction API.
 ///
 /// The generic size is expressed in bytes, not in bits. SRP-2048 is thus `Srp6User::<256>`.
-///
 /// Except for tests, only use the provided [`Srp6User2048`] or [`Srp6User4096`].
+///
+/// Zeroizing secrets as soon as possible is a concern client-side.
 #[derive(Debug)]
 pub struct Srp6User<const KEYLEN: usize> {
     pub A: PublicKey,
-    a: PrivateKey,
+    a: Zeroizing<PrivateKey>,
     pub M: Proof,
     S: SessionKey,
     K: SessionKeyHash,
@@ -68,7 +70,7 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         username: UsernameRef,
         constants: &OpenConstants<KEYLEN>,
     ) -> UserHandshake {
-        let a = generate_private_key_a::<KEYLEN>();
+        let a = Zeroizing::new(generate_private_key_a::<KEYLEN>());
         self.start_handshake_with_a(username, constants, a)
     }
 
@@ -76,7 +78,7 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
         &mut self,
         username: UsernameRef,
         constants: &OpenConstants<KEYLEN>,
-        a: PrivateKey,
+        a: Zeroizing<PrivateKey>,
     ) -> UserHandshake {
         let monty_N = Arc::new(BoxedMontyParams::new(constants.module.clone()));
         let A = calculate_pubkey_A::<KEYLEN>(&constants.generator, &a, &monty_N);
@@ -92,7 +94,7 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     /// Checks the server knew the correct details, only the issues a proof.
     pub fn update_handshake(
         &mut self,
-        server_handshake: &ServerHandshake,
+        server_handshake: ServerHandshake,
         constants: &OpenConstants<KEYLEN>,
         I: UsernameRef,
         p: &str,
@@ -113,7 +115,7 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
             &B,
             &self.A,
             &self.a,
-            &x,
+            x,
         )?;
         self.K = calculate_session_key_hash_interleave_K::<KEYLEN>(&self.S);
         self.M = calculate_proof_M::<KEYLEN>(
@@ -129,6 +131,8 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     }
 
     /// Verify the server proof, only then issue the share session key.
+    ///
+    /// This last step consumes self.
     pub fn verify_proof(self, servers_proof: &ProofHash) -> Option<SessionKey> {
         let proof_hash = calculate_proof_hash_M2::<KEYLEN>(&self.A, &self.M, &self.K);
         if servers_proof == &proof_hash {
@@ -151,7 +155,7 @@ pub fn start_handshake_with_a<const KEYLEN: usize>(
     this: &mut Srp6User<KEYLEN>,
     username: UsernameRef,
     constants: &OpenConstants<KEYLEN>,
-    a: PrivateKey,
+    a: Zeroizing<PrivateKey>,
 ) -> UserHandshake {
     this.start_handshake_with_a(username, constants, a)
 }

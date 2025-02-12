@@ -29,8 +29,8 @@ struct Input {
 fuzz_target!(|data: Input| full_handshake(data));
 
 fn full_handshake(data: Input) {
-    let mut constants = OpenConstants::default();
-    let mut user_details = generate_new_user_secrets_with_salt(
+    let constants = OpenConstants::default();
+    let user_details = generate_new_user_secrets_with_salt(
         &data.username,
         &data.password,
         &constants,
@@ -40,7 +40,7 @@ fn full_handshake(data: Input) {
     let user_handshake = start_handshake_with_a(
         &mut srp6_user,
         &data.username,
-        &mut constants,
+        &constants,
         data.private_a.clone(),
     );
     let mut srp6 = Srp6Host2048::new();
@@ -48,7 +48,7 @@ fn full_handshake(data: Input) {
         &mut srp6,
         &mut user_details,
         &user_handshake.user_publickey,
-        &mut constants,
+        &constants,
         data.private_b,
     )
     .unwrap();

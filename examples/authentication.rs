@@ -7,14 +7,15 @@ use chadehoc_srp6::host::Srp6Host2048;
 use chadehoc_srp6::user::Srp6User2048;
 use chadehoc_srp6::OpenConstants;
 
+// fn send_details_to_server(&
 fn main() {
     // 1) Create new user, once
 
     // --- client side
     let username = "Bob";
     let password = "secret-password";
-    let mut constants = OpenConstants::default();
-    let mut user_details = Srp6User2048::generate_new_user_secrets(username, password, &constants);
+    let constants = OpenConstants::default();
+    let user_details = Srp6User2048::generate_new_user_secrets(username, password, &constants);
     // --- server side
     // store the details sent by the client
 
@@ -22,19 +23,15 @@ fn main() {
 
     // --- client side - create a handshake
     let mut srp6_user = Srp6User2048::new();
-    let user_handshake = srp6_user.start_handshake(username, &mut constants);
+    let user_handshake = srp6_user.start_handshake(username, &constants);
     // --- server side - retrieve stored details and continue the handshake
     let mut srp6 = Srp6Host2048::new();
     let server_handshake = srp6
-        .continue_handshake(
-            &mut user_details,
-            &user_handshake.user_publickey,
-            &mut constants,
-        )
+        .continue_handshake(user_details, &user_handshake.user_publickey, &constants)
         .unwrap();
     // --- client side - compute a proof
     let proof = srp6_user
-        .update_handshake(&server_handshake, &mut constants, username, password)
+        .update_handshake(server_handshake, &constants, username, password)
         .unwrap();
     // --- server side - verify client proof, compute its own proof
     let (hamk, secret) = srp6.verify_proof(&proof).expect("invalid client proof");

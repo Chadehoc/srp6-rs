@@ -12,12 +12,14 @@ license = "MIT"
 include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
-crypto-bigint = { version = "0.6.0", features = ["rand", "alloc", "serde"] }
+crypto-bigint = { version = "0.6.0", features = ["rand", "alloc", "serde", "zeroize"] }
 derive_more = { version = "2.0.1", features = ["error", "display"] }
 hex-literal = "0.4.1"
 num-traits = "0.2"
 serde = { version = "1.0.217", features = ["derive"] }
 sha1 = "0.10.1"
+zeroize = { version = "1.8.1", features = ["zeroize_derive"] }
+
 # fuzzing
 arbitrary = { version = "1.4.1", optional = true, features = ["derive"] }
 
@@ -25,5 +27,5 @@ arbitrary = { version = "1.4.1", optional = true, features = ["derive"] }
 serde_json = "1.0.137"
 
 [features]
-# use this to allow empirical micro-optimisation
+# allow empirical micro-optimisation
 emp = []
