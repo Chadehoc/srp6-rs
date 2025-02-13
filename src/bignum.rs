@@ -201,6 +201,7 @@ impl<'de> Deserialize<'de> for SerUint {
                 formatter.write_str("a byte array")
             }
 
+            // json, for example
             fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
             where
                 A: serde::de::SeqAccess<'de>,
@@ -216,6 +217,18 @@ impl<'de> Deserialize<'de> for SerUint {
                 }
                 let num =
                     BoxedUint::from_be_slice(&data, prec).expect("the size is ok by construction");
+                Ok(SerUint::new(num))
+            }
+
+            // postcard, for example
+            fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+            {
+                let tmp: [u8; 4] = v[0..4].try_into().unwrap();
+                let prec = u32::from_be_bytes(tmp);
+                let num =
+                    BoxedUint::from_be_slice(&v[4..], prec).expect("size ok by construction");
                 Ok(SerUint::new(num))
             }
         }
@@ -253,6 +266,7 @@ mod tests {
         Odd,
     };
     use hex_literal::hex;
+    use crate::{OpenConstants, UserDetails, user::Srp6User};
 
     #[test]
     fn test_mod_exp() {
@@ -289,4 +303,18 @@ mod tests {
             assert_eq!(de.num.nlimbs(), x.num.nlimbs(), "different precisions");
         }
     }
+
+    #[test]
+    fn test_serde_postcard() {
+        let cst = OpenConstants::<256>::default();
+        let details = Srp6User::<256>::generate_new_user_secrets(
+            "username",
+            "password",
+            &cst);
+        let transfer = postcard::to_stdvec(&details).expect("ser nok");
+        let details_srv = postcard::from_bytes::<UserDetails>(&transfer).expect("deser nok");
+        assert_eq!(details_srv.username, details.username);
+        assert_eq!(details_srv.salt, details.salt);
+    }
+
 }
