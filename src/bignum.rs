@@ -7,7 +7,7 @@ use std::sync::Arc;
 use crypto_bigint::{
     modular::{BoxedMontyForm, BoxedMontyParams},
     rand_core::OsRng,
-    BoxedUint, Random, Uint,
+    BoxedUint, Random, Uint, Limb,
 };
 use serde::{de::Visitor, Deserialize, Serialize};
 use zeroize::Zeroize;
@@ -228,15 +228,19 @@ impl<'de> Deserialize<'de> for SerUint {
 ///
 /// Used for private keys and salt.
 pub fn new_rand(nbytes: usize) -> BoxedUint {
+    const FOR128: usize = 128 / Limb::BYTES;
+    const FOR64: usize = 64 / Limb::BYTES;
+    const FOR32: usize = 32 / Limb::BYTES;
+    const FOR16: usize = 16 / Limb::BYTES;
     match nbytes {
         // 128 bytes, for SRP4096 pk
-        Uint::<16>::BYTES => Uint::<64>::random(&mut OsRng).into(),
+        Uint::<FOR128>::BYTES => Uint::<FOR128>::random(&mut OsRng).into(),
         // 64 for SRP2048 pk
-        Uint::<8>::BYTES => Uint::<32>::random(&mut OsRng).into(),
+        Uint::<FOR64>::BYTES => Uint::<FOR64>::random(&mut OsRng).into(),
         // 32 for SRP1024 pk
-        Uint::<4>::BYTES => Uint::<16>::random(&mut OsRng).into(),
+        Uint::<FOR32>::BYTES => Uint::<FOR32>::random(&mut OsRng).into(),
         // 16 for salt (whatever the key length)
-        Uint::<2>::BYTES => Uint::<2>::random(&mut OsRng).into(),
+        Uint::<FOR16>::BYTES => Uint::<FOR16>::random(&mut OsRng).into(),
         _ => unimplemented!("key_len not implemented"),
     }
 }

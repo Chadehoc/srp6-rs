@@ -17,7 +17,7 @@ derive_more = { version = "2.0.1", features = ["error", "display"] }
 hex-literal = "0.4.1"
 num-traits = "0.2"
 serde = { version = "1.0.217", features = ["derive"] }
-sha1 = "0.10.1"
+sha1 = "0.10.6"
 zeroize = { version = "1.8.1", features = ["zeroize_derive"] }
 
 # fuzzing
