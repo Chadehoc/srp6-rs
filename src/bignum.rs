@@ -163,8 +163,8 @@ impl SerUint {
     }
 
     /// Check the (key-)size of the represented number.
-    pub fn bits_precision(&self) -> u32 {
-        self.num.bits_precision()
+    pub fn num_bytes(&self) -> usize {
+        num_effective_bytes(&self.num)
     }
 }
 
