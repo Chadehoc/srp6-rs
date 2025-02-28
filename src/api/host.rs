@@ -103,8 +103,8 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
     /// This last step consumes self.
     pub fn verify_proof(self, users_proof: &Proof) -> Result<(Proof, SessionKey)> {
         if self.M != *users_proof {
-            println!("srv {:?} != user {:?}", self.M, users_proof);
-            println!("{:?}", self);
+            // println!("srv {:?} != user {:?}", self.M, users_proof);
+            // println!("{:?}", self);
             return Err(Srp6Error::InvalidProof(*users_proof));
         }
         let hamk = calculate_proof_M2::<KEYLEN>(&self.A, &self.M, &self.K);
