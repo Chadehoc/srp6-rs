@@ -3,9 +3,9 @@
 //! To also simulate serialization/deserialization between client and server,
 //! see in `lib.rs` the test called `test_handshake_serde_2048`.
 
+use chadehoc_srp6::OpenConstants;
 use chadehoc_srp6::host::Srp6Host2048;
 use chadehoc_srp6::user::Srp6User2048;
-use chadehoc_srp6::OpenConstants;
 
 // fn send_details_to_server(&
 fn main() {

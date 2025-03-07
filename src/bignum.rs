@@ -5,11 +5,11 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use crypto_bigint::{
+    BoxedUint, Limb, Random, Uint,
     modular::{BoxedMontyForm, BoxedMontyParams},
     rand_core::OsRng,
-    BoxedUint, Random, Uint, Limb,
 };
-use serde::{de::Visitor, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Visitor};
 use zeroize::Zeroize;
 
 /// Give good values to [`crypto_bigint::BoxedUint::bits_precision`].
@@ -222,13 +222,12 @@ impl<'de> Deserialize<'de> for SerUint {
 
             // postcard, for example
             fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
-                where
-                    E: serde::de::Error,
+            where
+                E: serde::de::Error,
             {
                 let tmp: [u8; 4] = v[0..4].try_into().unwrap();
                 let prec = u32::from_be_bytes(tmp);
-                let num =
-                    BoxedUint::from_be_slice(&v[4..], prec).expect("size ok by construction");
+                let num = BoxedUint::from_be_slice(&v[4..], prec).expect("size ok by construction");
                 Ok(SerUint::new(num))
             }
         }
@@ -261,12 +260,12 @@ pub fn new_rand(nbytes: usize) -> BoxedUint {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{OpenConstants, UserDetails, user::Srp6User};
     use crypto_bigint::{
-        modular::{BoxedMontyForm, BoxedMontyParams},
         Odd,
+        modular::{BoxedMontyForm, BoxedMontyParams},
     };
     use hex_literal::hex;
-    use crate::{OpenConstants, UserDetails, user::Srp6User};
 
     #[test]
     fn test_mod_exp() {
@@ -307,14 +306,10 @@ mod tests {
     #[test]
     fn test_serde_postcard() {
         let cst = OpenConstants::<256>::default();
-        let details = Srp6User::<256>::generate_new_user_secrets(
-            "username",
-            "password",
-            &cst);
+        let details = Srp6User::<256>::generate_new_user_secrets("username", "password", &cst);
         let transfer = postcard::to_stdvec(&details).expect("ser nok");
         let details_srv = postcard::from_bytes::<UserDetails>(&transfer).expect("deser nok");
         assert_eq!(details_srv.username, details.username);
         assert_eq!(details_srv.salt, details.salt);
     }
-
 }

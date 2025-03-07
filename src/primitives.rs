@@ -3,14 +3,14 @@
 use std::sync::Arc;
 
 use crypto_bigint::{
-    modular::{BoxedMontyForm, BoxedMontyParams},
     BoxedUint, Odd,
+    modular::{BoxedMontyForm, BoxedMontyParams},
 };
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use crate::bignum::{new_rand, np::*, MonUint, SerUint};
-use crate::hash::{from_hash, to_array_pad_zero, Digest, Hash, HashFunc, Update, HASH_LENGTH};
+use crate::bignum::{MonUint, SerUint, new_rand, np::*};
+use crate::hash::{Digest, HASH_LENGTH, Hash, HashFunc, Update, from_hash, to_array_pad_zero};
 use crate::{Result, Srp6Error};
 
 /// Size of the `K` interleaved hash
@@ -379,8 +379,8 @@ pub(crate) fn generate_salt() -> Salt {
 mod tests {
     use super::*;
     use crate::{
-        protocol_details::testdata::{self, *},
         OpenConstants,
+        protocol_details::testdata::{self, *},
     };
 
     #[test]

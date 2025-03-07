@@ -3,8 +3,8 @@
 use crate::bignum::num_effective_bytes;
 
 use crypto_bigint::BoxedUint;
-pub use sha1::digest::Update;
 pub use sha1::Digest;
+pub use sha1::digest::Update;
 
 pub const HASH_LENGTH: usize = 20;
 pub type Hash = [u8; HASH_LENGTH];

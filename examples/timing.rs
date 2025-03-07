@@ -3,9 +3,9 @@
 //!
 //! Change the `KEYLEN` to change the tested version.
 
+use chadehoc_srp6::OpenConstants;
 use chadehoc_srp6::host::Srp6Host;
 use chadehoc_srp6::user::Srp6User;
-use chadehoc_srp6::OpenConstants;
 
 use std::time::{Duration, Instant};
 

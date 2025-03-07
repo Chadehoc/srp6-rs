@@ -1,9 +1,9 @@
 //! Server-side handshake API.
 
-use crate::bignum::num_effective_bytes;
-use crate::primitives::*;
 use crate::Result;
 use crate::Srp6Error;
+use crate::bignum::num_effective_bytes;
+use crate::primitives::*;
 
 use std::sync::Arc;
 
