@@ -16,7 +16,7 @@ crypto-bigint = { version = "0.6.1", features = ["rand", "alloc", "serde", "zero
 derive_more = { version = "2.0.1", features = ["error", "display"] }
 hex-literal = "1.0.0"
 num-traits = "0.2.19"
-serde = { version = "1.0.218", features = ["derive"] }
+serde = { version = "1.0.219", features = ["derive"] }
 sha1 = "0.10.6"
 zeroize = { version = "1.8.1", features = ["zeroize_derive"] }
 
@@ -30,3 +30,7 @@ serde_json = "1.0.140"
 [features]
 # allow empirical micro-optimisation
 emp = []
+default = ["emp"]
+
+[profile.release]
+opt-level = 2 # empirically marginally better

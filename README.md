@@ -7,14 +7,14 @@ protocol SRP version 6a as in [RFC5054].
 
 This is a heavily reworked fork of <https://github.com/valpaq/srp6-rs>, which was
 itself a fork of <https://github.com/sassman/srp6-rs>, which was published as the
-[srp6-rs crate](https://docs.rs/srp6) (which is flawed).
-
-Since then I found there was a more official
-[srp crate](https://docs.rs/srp/latest/srp/index.html)
-maintained by the [Rust Crypto](https://github.com/RustCrypto) group.
+[srp6-rs crate](https://docs.rs/srp6).
 
 Constant-time computations are done using [crypto-bigint], at the price of a high
 performance penalty.
+
+Since then I found there is a [srp crate](https://docs.rs/srp/latest/srp/index.html)
+maintained by the [Rust Crypto](https://github.com/RustCrypto) group; however
+constant-time computations are not yet available there.
 
 ## Documentation
 
