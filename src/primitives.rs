@@ -9,7 +9,7 @@ use crypto_bigint::{
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
-use crate::bignum::{MonUint, SerUint, new_rand, np::*};
+use crate::bignum::{MonUint, SerUint, new_rand, np};
 use crate::hash::{Digest, HASH_LENGTH, Hash, HashFunc, Update, from_hash, to_array_pad_zero};
 use crate::{Result, Srp6Error};
 
@@ -137,7 +137,7 @@ pub(crate) fn calculate_session_key_S_for_host<const KEYLEN: usize>(
 /// ```plain, ignore
 /// S = ((B - k * g^x) ^ (a + u * x)) % N
 /// ```
-#[allow(clippy::many_single_char_names)]
+#[allow(clippy::many_single_char_names, reason = "historical from forked repo")]
 pub(crate) fn calculate_session_key_S_for_client<const KEYLEN: usize>(
     monty_N: &Arc<BoxedMontyParams>,
     g: &Generator,
@@ -152,7 +152,7 @@ pub(crate) fn calculate_session_key_S_for_client<const KEYLEN: usize>(
     }
     let u = calculate_u::<KEYLEN>(A, B);
     let ux = u * &x.num;
-    let ux = ux.widen(needed_precision_pk::<KEYLEN>());
+    let ux = ux.widen(np::needed_precision_pk::<KEYLEN>());
     let exp = &a.num + ux;
     let monty_g = g.get_monty::<KEYLEN>(monty_N);
     let g_mod_x = &monty_g.pow(&x.num);
@@ -480,7 +480,7 @@ mod tests {
     where
         OpenConstants<KEYLEN>: Default,
     {
-        let needed = needed_precision::<KEYLEN>();
+        let needed = np::needed_precision::<KEYLEN>();
         println!("test prec for {KEYLEN}, needed {needed}");
         // hard : k*v + g^b, but now in Monty form passes easily
         let cst = OpenConstants::<KEYLEN>::default();

@@ -4,7 +4,7 @@ Modules [`host`] and [`user`] offer the APIS. Here are also defined recommended
 defaults for [OpenConstants] according to RFC 5054.
  */
 
-use crate::bignum::np::*;
+use crate::bignum::np::needed_precision;
 use crate::primitives::{Generator, OpenConstants, PrimeModulus};
 
 use crypto_bigint::BoxedUint;

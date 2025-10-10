@@ -1,6 +1,8 @@
 //! Server-side handshake API.
 
+use crate::bignum::SerUint;
 use crate::bignum::num_effective_bytes;
+#[allow(clippy::wildcard_imports, reason = "very long list")]
 use crate::primitives::*;
 use crate::{Result, Srp6Error};
 
@@ -30,10 +32,10 @@ impl<const KEYLEN: usize> Srp6User<KEYLEN> {
     /// Constructor, all defaults.
     pub fn new() -> Srp6User<KEYLEN> {
         Srp6User {
-            A: Default::default(),
-            a: Default::default(),
+            A: SerUint::default(),
+            a: Zeroizing::default(),
             M: Default::default(),
-            S: Default::default(),
+            S: Zeroizing::default(),
             K: [0u8; SESSION_KEY_HASH_LENGTH],
             monty_N: None,
         }

@@ -1,11 +1,13 @@
-// This allows to respect the official vocabulary.
-#![allow(non_snake_case)]
+#![allow(non_snake_case, reason = "respect the official vocabulary")]
+#![allow(clippy::needless_doctest_main, reason = "include_str is nice here")]
 
 //! This is the repository README.md file. License links are broken from the
 //! generated documentation.
 
-// License links are broken doing this, acceptable
-#![allow(rustdoc::broken_intra_doc_links)]
+#![allow(
+    rustdoc::broken_intra_doc_links,
+    reason = "license links broken, acceptable"
+)]
 #![doc =include_str!("../README.md")]
 
 //! ## Example

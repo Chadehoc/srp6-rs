@@ -2,12 +2,14 @@
 
 use crate::Result;
 use crate::Srp6Error;
-use crate::bignum::num_effective_bytes;
+use crate::bignum::{SerUint, num_effective_bytes};
+#[allow(clippy::wildcard_imports, reason = "very long list")]
 use crate::primitives::*;
 
 use std::sync::Arc;
 
 use crypto_bigint::modular::BoxedMontyParams;
+use zeroize::Zeroizing;
 
 /// Server-side interaction API.
 ///
@@ -27,8 +29,8 @@ impl<const KEYLEN: usize> Srp6Host<KEYLEN> {
     /// Constructor (all default).
     pub fn new() -> Srp6Host<KEYLEN> {
         Srp6Host {
-            A: Default::default(),
-            S: Default::default(),
+            A: SerUint::default(),
+            S: Zeroizing::default(),
             M: Default::default(),
             K: [0u8; SESSION_KEY_HASH_LENGTH],
         }

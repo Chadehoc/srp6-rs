@@ -86,16 +86,15 @@ impl MonUint {
     /// Get the Montgomery form of the number, with a cache to compute it only
     /// once on first demand.
     pub fn get_monty<const KEYLEN: usize>(&self, n: &Arc<BoxedMontyParams>) -> &BoxedMontyForm {
-        match self.monty.get() {
-            Some(m) => m,
-            None => {
-                let m = BoxedMontyForm::new_with_arc(
-                    self.num.widen(np::needed_precision::<KEYLEN>()),
-                    Arc::clone(n),
-                );
-                self.monty.set(m).unwrap();
-                self.monty.get().unwrap()
-            }
+        if let Some(m) = self.monty.get() {
+            m
+        } else {
+            let m = BoxedMontyForm::new_with_arc(
+                self.num.widen(np::needed_precision::<KEYLEN>()),
+                Arc::clone(n),
+            );
+            self.monty.set(m).unwrap();
+            self.monty.get().unwrap()
         }
     }
 }
@@ -149,16 +148,15 @@ impl SerUint {
     /// Get the Montgomery form of the number, with a cache to compute it only
     /// once on first demand.
     pub fn get_monty<const KEYLEN: usize>(&self, n: &Arc<BoxedMontyParams>) -> &BoxedMontyForm {
-        match self.monty.get() {
-            Some(m) => m,
-            None => {
-                let m = BoxedMontyForm::new_with_arc(
-                    self.num.widen(np::needed_precision::<KEYLEN>()),
-                    Arc::clone(n),
-                );
-                self.monty.set(m).unwrap();
-                self.monty.get().unwrap()
-            }
+        if let Some(m) = self.monty.get() {
+            m
+        } else {
+            let m = BoxedMontyForm::new_with_arc(
+                self.num.widen(np::needed_precision::<KEYLEN>()),
+                Arc::clone(n),
+            );
+            self.monty.set(m).unwrap();
+            self.monty.get().unwrap()
         }
     }
 
@@ -207,7 +205,7 @@ impl<'de> Deserialize<'de> for SerUint {
                 A: serde::de::SeqAccess<'de>,
             {
                 let mut tmp = [0u8; 4];
-                for digit in tmp.iter_mut() {
+                for digit in &mut tmp {
                     *digit = seq.next_element()?.expect("prec not encoded");
                 }
                 let prec = u32::from_be_bytes(tmp);

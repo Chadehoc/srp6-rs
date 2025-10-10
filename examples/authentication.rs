@@ -7,7 +7,6 @@ use chadehoc_srp6::OpenConstants;
 use chadehoc_srp6::host::Srp6Host2048;
 use chadehoc_srp6::user::Srp6User2048;
 
-// fn send_details_to_server(&
 fn main() {
     // 1) Create new user, once
 
